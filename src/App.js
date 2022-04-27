@@ -1,7 +1,8 @@
 import {useState, useEffect} from "react";
 import openSocket from "socket.io-client";
-
-const ENDPOINT = "https://obscure-waters-87185.herokuapp.com"
+// import ss  from "../node_modules/socket.io-stream/socket.io-stream"
+import {toBase64} from "./utils/index"
+const ENDPOINT = "localhost:3001" //"https://obscure-waters-87185.herokuapp.com"
 const socket = openSocket(ENDPOINT, {transports:["websocket"]})
 
 function App() {
@@ -27,19 +28,23 @@ function App() {
 
   function submitMessage(){
     let {message, roomName} = state
-    socket.emit("messageFromClient", {message: message, roomName: roomName})
+    socket.emit("messageFromClient", {message: message, roomName: roomName, type:"text"})
   }
 
   function handleMessageChange(e){
     let {name, value} = e.target
     setState({...state, [name]: value})
   }
-  // function uploadFile(e){
-  //   let file = e.target.files[0]
-  //   let stream = ss.createStream
-  //   ss(socket).emit("file", stream, {size: file.size})
-  //   ss.createBlobReadStream(file).pipe(stream)
-  // }
+  async function uploadFile(e){
+    let file = e.target.files[0]
+    let {roomName} = state
+    let b64 = await toBase64(file)
+    socket.emit("messageFromClient", {message: b64, roomName: roomName, type:"file"})
+    // let stream = ss.createStream()
+    // console.log(file,b64)
+    // ss(socket).emit("file", roomName, b64)
+    // ss.createBlobReadStream(b64).pipe(stream)
+  }
 
   useEffect(()=>{
     socket.on("newRoomis", data=>{
@@ -53,7 +58,7 @@ function App() {
     socket.on("messageFromServer", data=>{
       setState(state => {
         let newMessages = [...state.messageFromServr]
-        newMessages.push(data.message)
+        newMessages.push(data)
         let obj = {...state, messageFromServr: newMessages}
         return obj
       })
@@ -71,11 +76,19 @@ function App() {
         <hr />
         <div><textarea name="message" value={state.message} onChange={(e)=> handleMessageChange(e)} ></textarea> <br></br>
         <button onClick={()=> submitMessage()}>submit message</button> </div>
+        <input type={"file"} onChange={(e)=> uploadFile(e)} />
         <hr />
         <p>Messages:</p>
         <div>{state.messageFromServr.map((message, i)=> {
           return <div key={i}>
-            {message}
+            {message.type=== "text"? 
+            message.message : 
+            <div>
+            <object width={"120px"} height="120px" data= {message.message} >
+            </object>
+            <p><a href={message.message} download={Date.now()} >download</a></p>
+            </div>
+            }
           </div>
         })}</div>
 
