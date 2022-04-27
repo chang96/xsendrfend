@@ -2,7 +2,7 @@ import {useState, useEffect} from "react";
 import openSocket from "socket.io-client";
 // import ss  from "../node_modules/socket.io-stream/socket.io-stream"
 import {toBase64} from "./utils/index"
-const ENDPOINT = "localhost:3001" //"https://obscure-waters-87185.herokuapp.com"
+const ENDPOINT = "https://obscure-waters-87185.herokuapp.com"
 const socket = openSocket(ENDPOINT, {transports:["websocket"]})
 
 function App() {
