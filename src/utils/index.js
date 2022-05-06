@@ -30,6 +30,72 @@ function downloadBase64File(contentType, base64Data, fileName) {
     downloadLink.click();
 }
 
+function sendMessage(message, sendChunk) {
+  const decoder = new TextDecoder("utf-8");
+const queuingStrategy = new CountQueuingStrategy({ highWaterMark: 1 });
+let result = "";
+const writableStream = new WritableStream({
+// Implement the sink
+write(chunk) {
+  return new Promise((resolve, reject) => {
+    var buffer = new ArrayBuffer(1);
+    var view = new Uint8Array(buffer);
+    view[0] = chunk;
+    var decoded = decoder.decode(view, { stream: true });
+  //   var listItem = document.createElement('li');
+  //   listItem.textContent = "Chunk decoded: " + decoded;
+  //   list.appendChild(listItem);
+  //   result += decoded;
+    resolve();
+  });
+},
+close() {
+ 
+},
+abort(err) {
+  console.log("Sink error:", err);
+}
+}, queuingStrategy);
+  // defaultWriter is of type WritableStreamDefaultWriter
+
+  const defaultWriter = writableStream.getWriter();
+  const encoder = new TextEncoder();
+  const encoded = encoder.encode(message, { stream: true });
+  encoded.forEach((chunk) => {
+    defaultWriter.ready
+      .then(() => {
+          sendChunk(chunk)
+        return defaultWriter.write(chunk);
+
+      })
+      .then(() => {
+        console.log("Chunk written to sink.");
+      })
+      .catch((err) => {
+        console.log("Chunk error:", err);
+      });
+  });
+  // Call ready again to ensure that all chunks are written
+  //   before closing the writer.
+  defaultWriter.ready
+    .then(() => {
+      defaultWriter.close();
+    })
+    .then(() => {
+      console.log("All chunks written");
+    })
+    .catch((err) => {
+      console.log("Stream error:", err);
+    });
+}
+
+export {
+  toBase64,
+  dataURLtoFile,
+  downloadBase64File,
+  sendMessage
+}
+
 export {
     toBase64,
     dataURLtoFile,
