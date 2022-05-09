@@ -89,12 +89,7 @@ abort(err) {
     });
 }
 
-export {
-  toBase64,
-  dataURLtoFile,
-  downloadBase64File,
-  sendMessage
-}
+
 
 export {
     toBase64,

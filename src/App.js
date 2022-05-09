@@ -1,5 +1,11 @@
 import {useState, useEffect} from "react";
 import openSocket from "socket.io-client";
+import CreateSpace from "./components/createspace";
+import Description from "./components/description";
+import JoinOrCreate from "./components/joinorcreate";
+import JoinSpace from "./components/joinspace";
+import Logo from "./components/logo";
+import Or from "./elements/or"
 // import ss  from "../node_modules/socket.io-stream/socket.io-stream"
 import {toBase64} from "./utils/index"
 const ENDPOINT = "https://obscure-waters-87185.herokuapp.com"
@@ -68,7 +74,7 @@ function App() {
   return (
       <div>
          
-        <div><button onClick={()=> createRoom()}>create room</button></div>
+        {/* <div><button onClick={()=> createRoom()}>create room</button></div>
         <div>created room @ {state.roomName}</div> 
         <hr />
         <div><input placeholder="paste room code here" name="joined" value={state.joined} onChange={(e)=> handleChange(e)} /></div>
@@ -92,7 +98,23 @@ function App() {
           </div>
         })}</div>
 
-        <hr />
+        <hr /> */}
+        <div><Logo /></div>
+        <div 
+         className="flex flex-row"
+        >
+        <div 
+        style={{height:"70vh"}}
+        className="w-1/2 flex justify-center"
+        ><Description />
+
+        </div>
+        
+        <div
+        style={{height:"70vh",}}
+        className="w-1/2 flex justify-center"
+        ><JoinOrCreate /></div>
+        </div>
 
       </div>
 
