@@ -13,19 +13,18 @@ import { connect } from "react-redux";
 import {toBase64} from "./utils/index"
 import { Provider } from "react-redux";
 import configureStore from "./store/store";
-import Home from "./home";
-const ENDPOINT = "https://obscure-waters-87185.herokuapp.com"
+const ENDPOINT = "https://obscure-waters-87185.herokuHome.com"
 const socket = openSocket(ENDPOINT, {transports:["websocket"]})
 
 
 
-function App() {
+function Home({messageFromServr, response, joined, message, roomName}) {
   let [state, setState] = useState({
-    response: "",
-    joined:"",
-    message:"",
-    messageFromServr:[],
-    roomName:""
+    response: response,
+    joined:joined,
+    message:message,
+    messageFromServr: messageFromServr,
+    roomName: roomName
   })
   function createRoom(){
     socket.emit("createRoom", {room: true})
@@ -80,13 +79,65 @@ function App() {
   }, [])
 
   return (
-    <Provider store={configureStore()}>
-         <Home />   
-    </Provider>
+   
+      <div>
+         
+        {/* <div><button onClick={()=> createRoom()}>create room</button></div>
+        <div>created room @ {state.roomName}</div> 
+        <hr />
+        <div><input placeholder="paste room code here" name="joined" value={state.joined} onChange={(e)=> handleChange(e)} /></div>
+        <div> <button onClick={()=> joinRoom(state.joined)}>join button</button></div>
+        <hr />
+        <div><textarea name="message" value={state.message} onChange={(e)=> handleMessageChange(e)} ></textarea> <br></br>
+        <button onClick={()=> submitMessage()}>submit message</button> </div>
+        <input type={"file"} onChange={(e)=> uploadFile(e)} />
+        <hr />
+        <p>Messages:</p>
+        <div>{state.messageFromServr.map((message, i)=> {
+          return <div key={i}>
+            {message.type=== "text"? 
+            message.message : 
+            <div>
+            <object width={"120px"} height="120px" data= {message.message} >
+            </object>
+            <p><a href={message.message} download={Date.now()} >download</a></p>
+            </div>
+            }
+          </div>
+        })}</div>
+
+        <hr /> */}
+        <div><Logo /></div>
+        <div 
+         className="flex flex-row"
+        >
+        <div 
+        className="h-7070 w-1/2 flex justify-center"
+        ><Description />
+
+        </div>
+        
+        <div
+        className="h-7070 w-1/2 flex justify-center"
+        >{!joined? <ChatBodyAndChatHead /> : <JoinOrCreate />} </div>
+        </div>
+
+      </div>
 
   );
 }
 
+const mapStateToProps = state=> {
+  return {
+      ...state
+  }
+}
 
 
-export default App;
+const mapDispatchToProps = dispatch => {
+  return {
+      // submiting: ()=> dispatch(submiting)
+  }
+}
+
+export default connect(mapStateToProps, mapDispatchToProps)(Home);

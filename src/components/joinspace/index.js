@@ -5,7 +5,7 @@ function JoinSpace(){
     return <div
     style={{display:"flex", flexDirection:"row", justifyContent:"space-between"}}
     >
-        <Input cN={"border-b-2 border-blue-600 h-8 bg-[#121212]"} />
+        <Input cN={"border-b-2 border-blue-600 h-8 bg-[#121212] text-white outline-none"} />
         <Btn 
         cN={"bg-white text-blue-600 font-thin hover:bg-blue-700 hover:text-white w-20 h-8"} 
         name="Join"

@@ -1,0 +1,5 @@
+export const CREATE_SPACE = "CREATE_SPACE"
+export const GUEST_NUM = "GUEST_NUM"
+export const SEND_MESSAGE = "SEND_MESSAGE"
+export const RECEIVE_MESSAGE = "RECEIVE_MESSAGE"
+
