@@ -83,7 +83,7 @@ function ChartBody(){
         </div>
         </div>
         <div
-        className="absolute bottom-5 left-[12%]"
+        className="absolute bottom-0 left-[10%] sm:absolute sm:bottom-5 sm:left-[12%]"
         ><ChartBodyElements /></div>
     </div>
 }

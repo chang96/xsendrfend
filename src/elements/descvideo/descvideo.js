@@ -1,5 +1,5 @@
 import vidl from "../../assets/abstract.mp4"
-import vid from "../../assets/abstract 2.mp4"
+import vid from "../../assets/abstractx.mp4"
 function Vid({name, color, height, width, onclick, cN}){
 
     return <div className="bg-white relative">
@@ -7,7 +7,9 @@ function Vid({name, color, height, width, onclick, cN}){
             position:"absolute"
 
         }}>
-        <video className="ml-24 origin-center rotate-[-25deg]" muted autoPlay loop height={""} width={"30%"} src= {vid}></video>
+        <video style={{
+            
+        }} className="ml-24 origin-center rotate-[-25deg]" muted autoPlay loop height={""} width={"30%"} src= {vidl}></video>
         </div>
 
         <video style={{

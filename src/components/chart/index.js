@@ -4,7 +4,18 @@ import ChartHead from "./chathead/chathead";
 function ChatBodyAndChatHead(){
     return <div
   
-    className="bg-[#121212] w-128"
+    className="
+    fixed
+    left-0
+    top-0
+    w-full
+    h-full
+    z-20
+    bg-[#121212]
+    sm:relative
+    sm:bg-[#121212] 
+    sm:w-128"
+    
     >
         <ChartHead />
         <ChartBody/>

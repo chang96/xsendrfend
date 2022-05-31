@@ -109,17 +109,17 @@ function Home({messageFromServr, response, joined, message, roomName}) {
         <hr /> */}
         <div><Logo /></div>
         <div 
-         className="flex flex-row"
+         className="flex flex-col sm:flex sm:flex-row"
         >
         <div 
-        className="h-7070 w-1/2 flex justify-center"
+        className="sm:h-7070 sm:w-1/2 sm:flex sm:justify-center"
         ><Description />
 
         </div>
         
         <div
-        className="h-7070 w-1/2 flex justify-center"
-        >{!joined? <ChatBodyAndChatHead /> : <JoinOrCreate />} </div>
+        className="sm:h-7070 sm:w-1/2 sm:flex sm:justify-center"
+        >{joined? <ChatBodyAndChatHead /> : <JoinOrCreate />} </div>
         </div>
 
       </div>

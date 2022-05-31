@@ -4,8 +4,8 @@ import JoinSpace from "../joinspace"
 
 function JoinOrCreate(){
     return <div 
-    style={{paddingTop:"20vh", backgroundColor:"#121212"}}
-    className="flex justify-center w-128"
+    style={{paddingTop:"20vh"}}
+    className="flex justify-center sm:flex sm:flex-center sm:w-128 sm:bg-[#121212]"
     >
         <div>
         <CreateSpace />

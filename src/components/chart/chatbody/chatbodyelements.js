@@ -3,7 +3,7 @@ import Btn from "../../../elements/button/btn";
 import Input from "../../../elements/input/input";
 import sendlogo from "../../../assets/send.png"
 function ChartBodyElements(){
-    return <div className="flex flex-row space-x-1">
+    return <div className="flex flex-row justify-center sm:flex sm:flex-row sm:space-x-1">
         <div className="flex flex-row border rounded border-white">
             <Attachment />
             <Input cN={"h-10 border-none outline-none bg-[#121212] rounded text-white"} />
