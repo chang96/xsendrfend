@@ -1,4 +1,5 @@
 import { connect } from "react-redux";
+import Connected from "../../connected/index";
 
 function ChartHead({roomName}){
     return <div
@@ -9,7 +10,8 @@ function ChartHead({roomName}){
         paddingTop:"5%",
         marginTop:"6%",
         marginBottom:"5%",
-        borderRadius:"2px"
+        borderRadius:"2px",
+        position: "relative"
         
     }}
     className="bg-[#001AFF] w-96">
@@ -18,6 +20,8 @@ function ChartHead({roomName}){
             flexDirection:"row",
             justifyContent:"space-around",
         }}>
+    {<Connected />}
+
             <span className="flex flex-row">
                 <h1
                 style={{
@@ -46,7 +50,7 @@ function ChartHead({roomName}){
             <p 
             className="mr-1"
             >0</p>
-            <p>Guest</p>
+            <p>Connected</p>
             </span>
             
         </div>

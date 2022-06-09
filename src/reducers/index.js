@@ -1,10 +1,23 @@
 import { CREATE_SPACE } from "../actionTypes"
+import { CHANGE_NAME } from "../actionTypes"
+import { USER_TYPE } from "../actionTypes"
+import { NEW_MESSAGE } from "../actionTypes"
+// const initialState = {
+//     messageFromServr: [],
+//     createSpace: false,
+//     guests:0,
+//     roomName:{name: "****"},
+//     joined: {joined: false},
+//     message:"",
+//     response:""
+// }
 
 const createSpaceReducer = function (state, action){
+    
     switch(action.type){
         case CREATE_SPACE:
             return {
-                createSpace: true
+                status: true
             }
         default:
             return {
@@ -15,9 +28,9 @@ const createSpaceReducer = function (state, action){
 
 const messageReducer = function (state, action){
     switch(action.type){
-        case "":
+        case "N":
             return {
-                
+                message:''
             }
         default:
             return {
@@ -27,11 +40,10 @@ const messageReducer = function (state, action){
 }
 
 const roomNameReducer = function (state, action){
-    console.log(state, action)
     switch(action.type){
-        case "":
+        case CHANGE_NAME:
             return {
-                
+                name: action.name
             }
         default:
             return {
@@ -40,50 +52,50 @@ const roomNameReducer = function (state, action){
     }
 }
 
-const guestNumberReducer = function (state, action){
-    switch(action.type){
-        case "":
-            return {
+// const guestNumberReducer = function (state, action){
+//     switch(action.type){
+//         case "":
+//             return {
                 
-            }
-        default:
-            return {
-                ...state
-            }
-    }
-}
+//             }
+//         default:
+//             return {
+//                 ...state
+//             }
+//     }
+// }
 
-const joinedReducer = function (state, action){
-    switch(action.type){
-        case "":
-            return {
+// const joinedReducer = function (state, action){
+//     switch(action.type){
+//         case "":
+//             return {
                 
-            }
-        default:
-            return {
-                ...state
-            }
-    }
-}
+//             }
+//         default:
+//             return {
+//                 ...state
+//             }
+//     }
+// }
 
-const responseReducer = function (state, action){
-    switch(action.type){
-        case "":
-            return {
+// const responseReducer = function (state, action){
+//     switch(action.type){
+//         case "":
+//             return {
                 
-            }
-        default:
-            return {
-                ...state
-            }
-    }
-}
+//             }
+//         default:
+//             return {
+//                 ...state
+//             }
+//     }
+// }
 
 const fromServerReducer = function (state, action){
     switch(action.type){
-        case "":
+        case NEW_MESSAGE:
             return {
-                
+                messages: [...state.messages, action.payload]
             }
         default:
             return {
@@ -92,14 +104,27 @@ const fromServerReducer = function (state, action){
     }
 }
 
+const setUserTypeReducer = function(state, action){
+    switch(action.type){
+        case USER_TYPE:
+            return {
+                userType: action.userType
+            }
+        default:
+            return {
+                ...state
+            }
+    }
+}
 
 
 export {
     createSpaceReducer,
     messageReducer,
     fromServerReducer,
-    joinedReducer,
+    // joinedReducer,
     roomNameReducer,
-    guestNumberReducer,
-    responseReducer
+    // guestNumberReducer,
+    // responseReducer
+    setUserTypeReducer
 }

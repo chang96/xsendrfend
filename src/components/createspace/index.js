@@ -1,4 +1,10 @@
-function CreateSpace(){
+import { connect } from "react-redux"
+import { useEffect } from "react"
+import { useContext } from "react";
+import { WebSocketContext } from "../../utils/websocket";
+import {createSpaceAction} from "../../action/index"
+function CreateSpace({joined, socket, join}){
+  const {createRoom} = useContext(WebSocketContext)
 
     return <div 
     style={{backgroundColor:"#001AFF"}}
@@ -18,11 +24,28 @@ function CreateSpace(){
           height:"42px",
           borderRadius:"50%",
           color:"blue",
-          fontSize:"18px"
-        }}>+</button></div>
+          fontSize:"18px",
+        }}
+        // onClick={()=> join()}
+        onClick={()=> {
+          createRoom()
+        }}
+        >+</button></div>
         </div>
     </div>
 }
 
+const mapStateToProps = state=> {
+  return {
+      ...state
+  }
+}
 
-export default CreateSpace
+
+const mapDispatchToProps = dispatch => {
+  return {
+      join: ()=> dispatch(createSpaceAction())
+  }
+}
+
+export default connect(mapStateToProps, mapDispatchToProps)(CreateSpace);

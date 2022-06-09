@@ -3,28 +3,35 @@ import {
     createSpaceReducer,
     messageReducer,
     fromServerReducer,
-    joinedReducer,
+    // joinedReducer,
     roomNameReducer,
-    guestNumberReducer,
-    responseReducer
+    // guestNumberReducer,
+    // responseReducer
+    setUserTypeReducer
 } from "../reducers/index"
 const rootReducer = combineReducers({
-    createSpace: createSpaceReducer,
+    joined: createSpaceReducer,
     messageFromServr: fromServerReducer,
-    guests: guestNumberReducer,
+    // guests: guestNumberReducer,
     roomName: roomNameReducer,
-    joined: joinedReducer,
+    // createSpace: joinedReducer,
     message: messageReducer,
-    response: responseReducer
+    // response: responseReducer
+    userType: setUserTypeReducer
 })
+
 const initialState = {
-    messageFromServr: [],
-    createSpace: false,
-    guests:0,
+    messageFromServr: {messages: [
+        {type:"owner", message:""},
+        {type:"guest", message:""}
+    ]},
+    // createSpace: false,
+    // guests:0,
     roomName:{name: "****"},
-    joined:"",
-    message:"",
-    response:""
+    joined: {status: false},
+    userType:{userType: ""},
+    message:{message: ""},
+    // response:""
 }
 
 

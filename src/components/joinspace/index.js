@@ -1,16 +1,37 @@
 import Input from "../../elements/input/input";
 import Btn from "../../elements/button/btn";
-
-function JoinSpace(){
+import { connect } from "react-redux"
+import { useContext } from "react";
+import { WebSocketContext } from "../../utils/websocket";
+import { changRoomNameAction } from "../../action/index"
+function JoinSpace({roomName, changeName}){
+    const {joinRoom} = useContext(WebSocketContext)
+    let onchange = function({name, value}){
+        changeName(value)
+    }
     return <div
     style={{display:"flex", flexDirection:"row", justifyContent:"space-between"}}
     >
-        <Input cN={"border-b-2 border-blue-600 h-8 bg-[#121212] text-white outline-none"} />
+        <Input name={"join"} onChange={onchange} cN={"border-b-2 border-blue-600 h-8 bg-[#121212] text-white outline-none"} />
         <Btn 
         cN={"bg-white text-blue-600 font-thin hover:bg-blue-700 hover:text-white w-20 h-8"} 
         name="Join"
+        onclick={()=> joinRoom(roomName.name)}
         />
         </div>
 }
 
-export default JoinSpace
+const mapStateToProps = state=> {
+    return {
+        ...state
+    }
+  }
+  
+  
+  const mapDispatchToProps = dispatch => {
+    return {
+        changeName: (name)=> dispatch(changRoomNameAction(name))
+    }
+  }
+  
+  export default connect(mapStateToProps, mapDispatchToProps)(JoinSpace);

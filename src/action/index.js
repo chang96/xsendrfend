@@ -2,7 +2,9 @@ import { CREATE_SPACE } from "../actionTypes"
 import { GUEST_NUM } from "../actionTypes"
 import { SEND_MESSAGE } from "../actionTypes"
 import { RECEIVE_MESSAGE } from "../actionTypes"
-
+import { CHANGE_NAME } from "../actionTypes"
+import { USER_TYPE } from "../actionTypes"
+import { NEW_MESSAGE } from "../actionTypes"
 
 const createSpaceAction = function(){
     return {
@@ -11,37 +13,62 @@ const createSpaceAction = function(){
     }
 }
 
-const guestAction = function(num){
+const changRoomNameAction = function(name){
     return {
-        type: GUEST_NUM,
-        num: num
+        type: CHANGE_NAME,
+        name: name
     }
 }
 
-const sendMessagAction = function(message){
+const setUserType = function (userType){
     return {
-        type: SEND_MESSAGE,
-        payload: {
-            message,
-            type:"send"
-        }
+        type: USER_TYPE,
+        userType
+
     }
 }
 
-const receiveMessageAction = function(message){
+const newMessageAction = function(payload){
     return {
-        type: RECEIVE_MESSAGE,
-        payload: {
-            message,
-            type:"receive"
-        }
+        type: NEW_MESSAGE,
+        payload: payload
     }
 }
 
+// const guestAction = function(num){
+//     return {
+//         type: GUEST_NUM,
+//         num: num
+//     }
+// }
 
-export default {
+// const sendMessagAction = function(message){
+//     return {
+//         type: SEND_MESSAGE,
+//         payload: {
+//             message,
+//             type:"send"
+//         }
+//     }
+// }
+
+// const receiveMessageAction = function(message){
+//     return {
+//         type: RECEIVE_MESSAGE,
+//         payload: {
+//             message,
+//             type:"receive"
+//         }
+//     }
+// }
+
+
+export {
     createSpaceAction,
-    guestAction,
-    sendMessagAction,
-    receiveMessageAction
+    // guestAction,
+    // sendMessagAction,
+    // receiveMessageAction
+    changRoomNameAction,
+    setUserType,
+    newMessageAction
 }

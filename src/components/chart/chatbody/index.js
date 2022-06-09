@@ -1,6 +1,7 @@
 import ChartBodyElements from "./chatbodyelements";
 import "./index.css"
-function ChartBody(){
+import { connect } from "react-redux"
+function ChartBody({messageFromServr}){
     return <div
         className="relative bg-[#1B1B1B] w-96 mb-4"
         style={{
@@ -14,73 +15,46 @@ function ChartBody(){
         style={{
             overflow:"auto",
             height:"70%",
-            marginTop:"1px"
+            marginTop:"1px",
+            width:"100%"
+            
         }}
         >
-        <div>
-            <p>message</p>
-        </div>
-        <div>
-            <p>Another message</p>
-        </div>
-        <div>
-            <p>Another message</p>
-        </div>
-        <div
-        style={{
-            display:"flex",
-            float:"right",
-            width:"100%",
-            justifyContent:"end"
+        {messageFromServr.messages.map(function(message, i){
+            if(message.type=== "owner"){
+                return  <div style={{
+                    color:"white",
+                    width:"100%",
+                    padding:"2px"
 
-        }}
-        >
-            <p>Another message</p>
-        </div>
-        <div>
-            <p>Another message</p>
-        </div>
-        <div>
-            <p>Another message</p>
-        </div>
-        <div>
-            <p>Another message</p>
-        </div>
-        <div>
-            <p>Another message</p>
-        </div>
-        <div>
-            <p>Another message</p>
-        </div>
-        <div>
-            <p>Another message</p>
-        </div>
-        <div>
-            <p>Another message</p>
-        </div>
-        <div>
-            <p>Another message</p>
-        </div>
-        <div>
-            <p>Another message</p>
-        </div>
-        <div>
-            <p>Another message</p>
-        </div>
-        <div>
-            <p>Another message</p>
-        </div>
-        <div>
-            <p>Another message</p>
-        </div>
-        <div>
-            <p>Another message</p>
-        </div><div>
-            <p>Another message</p>
-        </div>
-        <div>
-            <p>Another message</p>
-        </div>
+                }} key={i}>
+                <p
+                style={{
+                    width:"50%"
+                }}
+                >{message.message}</p>
+            </div>
+            } else {
+                return    <div
+                style={{
+                    display:"flex",
+                    float:"right",
+                    width:"100%",
+                    justifyContent:"end",
+                    color:"white",
+                    padding:"2px"
+
+                }}
+                key={i}
+                >
+                    <p
+                    style={{
+                        width:""
+                    }}
+                    >{message.message}</p>
+                </div>
+            }
+        })}
         </div>
         <div
         className="absolute bottom-0 left-[10%] sm:absolute sm:bottom-5 sm:left-[12%]"
@@ -88,5 +62,17 @@ function ChartBody(){
     </div>
 }
 
+const mapStateToProps = state=> {
+    return {
+        ...state
+    }
+  }
+  
+  
+  const mapDispatchToProps = dispatch => {
+    return {
+        
+    }
+  }
 
-export default ChartBody
+export default connect(mapStateToProps, mapDispatchToProps)(ChartBody)

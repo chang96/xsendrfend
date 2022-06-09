@@ -9,7 +9,7 @@ function Vid({name, color, height, width, onclick, cN}){
         }}>
         <video style={{
             
-        }} className="ml-24 origin-center rotate-[-25deg]" muted autoPlay loop height={""} width={"30%"} src= {vidl}></video>
+        }} className="ml-24 origin-center rotate-[-25deg]" muted autoPlay loop height={""} width={"30%"} src= {vid}></video>
         </div>
 
         <video style={{

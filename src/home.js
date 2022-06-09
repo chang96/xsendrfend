@@ -1,4 +1,4 @@
-import {useState, useEffect} from "react";
+import {useState, useEffect, useContext} from "react";
 import openSocket from "socket.io-client";
 import ChatBodyAndChatHead from "./components/chart";
 import ChartBody from "./components/chart/chatbody";
@@ -9,16 +9,18 @@ import JoinSpace from "./components/joinspace";
 import Logo from "./components/logo";
 import Or from "./elements/or"
 import { connect } from "react-redux";
+import {WebSocketContext} from "./utils/websocket"
 // import ss  from "../node_modules/socket.io-stream/socket.io-stream"
 import {toBase64} from "./utils/index"
 import { Provider } from "react-redux";
 import configureStore from "./store/store";
-const ENDPOINT = "https://obscure-waters-87185.herokuHome.com"
-const socket = openSocket(ENDPOINT, {transports:["websocket"]})
+// const ENDPOINT = "http://localhost:3001" //"https://obscure-waters-87185.herokuHome.com"
+// const socket = openSocket(ENDPOINT, {transports:["websocket"]})
 
 
 
-function Home({messageFromServr, response, joined, message, roomName}) {
+function Home(l) {
+  let {messageFromServr, response, joined, message, roomName} = l
   let [state, setState] = useState({
     response: response,
     joined:joined,
@@ -26,6 +28,7 @@ function Home({messageFromServr, response, joined, message, roomName}) {
     messageFromServr: messageFromServr,
     roomName: roomName
   })
+  const {socket} = useContext(WebSocketContext)
   function createRoom(){
     socket.emit("createRoom", {room: true})
   }
@@ -60,22 +63,23 @@ function Home({messageFromServr, response, joined, message, roomName}) {
   }
 
   useEffect(()=>{
-    socket.on("newRoomis", data=>{
-      setState({...state, roomName: data})
-    })
+    
+    // socket.on("newRoomis", data=>{
+    //   setState({...state, roomName: data})
+    // })
 
-    socket.on("joinedRoom", data=>{
-      // alert(`new client connected to ${data.room}`)
-    })
+    // socket.on("joinedRoom", data=>{
+    //   // alert(`new client connected to ${data.room}`)
+    // })
 
-    socket.on("messageFromServer", data=>{
-      setState(state => {
-        let newMessages = [...state.messageFromServr]
-        newMessages.push(data)
-        let obj = {...state, messageFromServr: newMessages}
-        return obj
-      })
-    })
+    // socket.on("messageFromServer", data=>{
+    //   setState(state => {
+    //     let newMessages = [...state.messageFromServr]
+    //     newMessages.push(data)
+    //     let obj = {...state, messageFromServr: newMessages}
+    //     return obj
+    //   })
+    // })
   }, [])
 
   return (
@@ -119,7 +123,7 @@ function Home({messageFromServr, response, joined, message, roomName}) {
         
         <div
         className="sm:h-7070 sm:w-1/2 sm:flex sm:justify-center"
-        >{joined? <ChatBodyAndChatHead /> : <JoinOrCreate />} </div>
+        >{joined.status ? <ChatBodyAndChatHead /> : <JoinOrCreate />} </div>
         </div>
 
       </div>
@@ -136,7 +140,7 @@ const mapStateToProps = state=> {
 
 const mapDispatchToProps = dispatch => {
   return {
-      // submiting: ()=> dispatch(submiting)
+      
   }
 }
 
