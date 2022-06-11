@@ -5,4 +5,5 @@ export const RECEIVE_MESSAGE = "RECEIVE_MESSAGE"
 export const CHANGE_NAME = "CHANGE_NAME"
 export const NEW_MESSAGE = "NEW_MESSAGE"
 export const USER_TYPE = "USER_TYPE"
+export const COMPLETION = "COMPLETION"
 

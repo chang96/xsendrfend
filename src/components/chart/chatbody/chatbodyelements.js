@@ -23,7 +23,7 @@ function ChartBodyElements({userType, sendMessage, roomName}){
     }
     return <div className="flex flex-row justify-center sm:flex sm:flex-row sm:space-x-1">
         <div className="flex flex-row border rounded border-white">
-            <Attachment />
+            <Attachment msg={state.message} />
             <Input ta={true} msg={state.message} name={"chat"} onChange={changing} cN={"h-10 border-none outline-none bg-[#121212] rounded text-white"} />
         </div>
         <div>

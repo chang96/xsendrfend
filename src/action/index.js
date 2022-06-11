@@ -5,6 +5,7 @@ import { RECEIVE_MESSAGE } from "../actionTypes"
 import { CHANGE_NAME } from "../actionTypes"
 import { USER_TYPE } from "../actionTypes"
 import { NEW_MESSAGE } from "../actionTypes"
+import { COMPLETION } from "../actionTypes"
 
 const createSpaceAction = function(){
     return {
@@ -31,6 +32,13 @@ const setUserType = function (userType){
 const newMessageAction = function(payload){
     return {
         type: NEW_MESSAGE,
+        payload: payload
+    }
+}
+
+const completion = function (payload){
+    return {
+        type: COMPLETION,
         payload: payload
     }
 }
@@ -70,5 +78,6 @@ export {
     // receiveMessageAction
     changRoomNameAction,
     setUserType,
-    newMessageAction
+    newMessageAction,
+    completion
 }

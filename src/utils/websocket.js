@@ -12,8 +12,8 @@ import {
 } from "../action/index"
 
 
-const ENDPOINT = "https://obscure-waters-87185.herokuapp.com"// "http://localhost:3001/"
- 
+const ENDPOINT = "http://localhost:3001/" //"https://obscure-waters-87185.herokuapp.com"// 
+var storedData =''
 
 const WebSocketContext = createContext(null)
 
@@ -88,6 +88,13 @@ export default ({ children }) => {
         //   })
         console.log(data)
         data.type = "owner"
+        if(data.xtype === 'file' && data.completed){
+            storedData += data.message
+            if(data.completed === 1){
+                dispatch(newMessageAction({...data, message: storedData}))
+                storedData =''
+            }
+        } else 
         dispatch(newMessageAction(data))
         })
 

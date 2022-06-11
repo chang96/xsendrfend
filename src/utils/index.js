@@ -89,8 +89,6 @@ abort(err) {
     });
 }
 
-
-
 export {
     toBase64,
     dataURLtoFile,

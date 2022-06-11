@@ -7,7 +7,8 @@ import {
     roomNameReducer,
     // guestNumberReducer,
     // responseReducer
-    setUserTypeReducer
+    setUserTypeReducer,
+    completionReducer
 } from "../reducers/index"
 const rootReducer = combineReducers({
     joined: createSpaceReducer,
@@ -17,7 +18,8 @@ const rootReducer = combineReducers({
     // createSpace: joinedReducer,
     message: messageReducer,
     // response: responseReducer
-    userType: setUserTypeReducer
+    userType: setUserTypeReducer,
+    completion: completionReducer
 })
 
 const initialState = {
@@ -31,6 +33,7 @@ const initialState = {
     joined: {status: false},
     userType:{userType: ""},
     message:{message: ""},
+    completion: {completion:0}
     // response:""
 }
 

@@ -2,6 +2,7 @@ import { CREATE_SPACE } from "../actionTypes"
 import { CHANGE_NAME } from "../actionTypes"
 import { USER_TYPE } from "../actionTypes"
 import { NEW_MESSAGE } from "../actionTypes"
+import { COMPLETION } from "../actionTypes"
 // const initialState = {
 //     messageFromServr: [],
 //     createSpace: false,
@@ -117,7 +118,18 @@ const setUserTypeReducer = function(state, action){
     }
 }
 
-
+const completionReducer = function(state,action){
+    switch(action.type){
+        case COMPLETION:
+            return {
+                completion: action.payload
+            }
+        default:
+            return {
+                ...state
+            }
+    }
+}
 export {
     createSpaceReducer,
     messageReducer,
@@ -126,5 +138,6 @@ export {
     roomNameReducer,
     // guestNumberReducer,
     // responseReducer
-    setUserTypeReducer
+    setUserTypeReducer,
+    completionReducer
 }
