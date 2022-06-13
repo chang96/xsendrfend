@@ -58,8 +58,11 @@ function Home(l) {
         <div
         className="sm:h-7070 sm:w-1/2 sm:flex sm:justify-center"
         >{joined.status ? <ChatBodyAndChatHead /> : <JoinOrCreate />} </div>
-        </div>
 
+        </div>
+        <div className="text-white absolute left-0 bottom-0 font-thin text-[12px]">
+        {/* contribution: <a>coding salafi</a>, <a>chang</a> */}
+        </div>
       </div>
 
   );

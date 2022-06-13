@@ -4,11 +4,13 @@ import { connect } from "react-redux"
 import {WebSocketContext} from "../../../utils/websocket"
 import {newMessageAction, completion} from "../../../action/index"
 import {useState, useContext, useEffect} from 'react'
-
+import download from "../../../assets/download.png"
 function Download (){
-    return <u
-    className="font-bold font-sans"
-    >⭳</u>
+    return <img
+    src={download}
+    alt=''
+    className="w-8 h-8" 
+    />
 }
 
 function Sending(){
@@ -131,11 +133,16 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                     style={{
                         width:"120px",
                         height:'60px',
+                        border:"1px solid blue",
+                        borderRadius:"10px"
                     }}
                     data={message.message}
 
                     ></object>
-                    <p><a href={message.message} download={Date.now()} ><Download /></a>{message.message.match(rgx)}</p>
+                    <span className="flex flex-row">
+                    <a href={message.message} download={Date.now()} ><Download /></a>
+                    <span className="text-sm font-thin ml-1">{message.message.match(rgx)}</span>
+                </span>
                 </div> 
                 } else 
                 return  <div style={{
