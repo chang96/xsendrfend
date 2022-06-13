@@ -20,64 +20,7 @@ import Home from "./home";
 
 
 function App() {
-  // let [state, setState] = useState({
-  //   response: "",
-  //   joined:"",
-  //   message:"",
-  //   messageFromServr:[],
-  //   roomName:""
-  // })
-  // function createRoom(){
-  //   socket.emit("createRoom", {room: true})
-  // }
 
-  // function joinRoom(roomName){
-  //   setState({...state, roomName})
-  //   socket.emit("joinRoom", {roomName: roomName})
-  // }
-  // function handleChange(e){
-  //   let {name,value} = e.target
-  //   setState({...state, [name]: value})
-  // }
-
-  // function submitMessage(){
-  //   let {message, roomName} = state
-  //   socket.emit("messageFromClient", {message: message, roomName: roomName, type:"text"})
-  // }
-
-  // function handleMessageChange(e){
-  //   let {name, value} = e.target
-  //   setState({...state, [name]: value})
-  // }
-  // async function uploadFile(e){
-  //   let file = e.target.files[0]
-  //   let {roomName} = state
-  //   let b64 = await toBase64(file)
-  //   socket.emit("messageFromClient", {message: b64, roomName: roomName, type:"file"})
-  //   // let stream = ss.createStream()
-  //   // console.log(file,b64)
-  //   // ss(socket).emit("file", roomName, b64)
-  //   // ss.createBlobReadStream(b64).pipe(stream)
-  // }
-
-  // useEffect(()=>{
-  //   socket.on("newRoomis", data=>{
-  //     setState({...state, roomName: data})
-  //   })
-
-  //   socket.on("joinedRoom", data=>{
-  //     // alert(`new client connected to ${data.room}`)
-  //   })
-
-  //   socket.on("messageFromServer", data=>{
-  //     setState(state => {
-  //       let newMessages = [...state.messageFromServr]
-  //       newMessages.push(data)
-  //       let obj = {...state, messageFromServr: newMessages}
-  //       return obj
-  //     })
-  //   })
-  // }, [])
 
   return (
     <Provider store={configureStore()}>

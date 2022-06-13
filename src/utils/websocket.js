@@ -36,7 +36,7 @@ export default ({ children }) => {
     }
 
     function submitMessage(data){
-        console.log(data)
+        
         socket.emit("messageFromClient", {...data})
       }
 
@@ -63,14 +63,14 @@ export default ({ children }) => {
         socket = openSocket(ENDPOINT, {transports:["websocket"]})
 
         socket.on("newRoomis", (msg) => {
-            console.log("new room is ",msg)
+            // console.log("new room is ",msg)
             dispatch(setUserType("owner"))
 
             dispatch(createSpaceAction())
             dispatch(changRoomNameAction(msg))
         })
         socket.on("joinedRoom", data=>{
-            console.log(data)
+            // console.log(data)
             // alert(`new client connected to ${data.room}`)
             dispatch(setUserType("guest"))
 
@@ -86,7 +86,7 @@ export default ({ children }) => {
         //     let obj = {...state, messageFromServr: newMessages}
         //     return obj
         //   })
-        console.log(data)
+        // console.log(data)
         data.type = "owner"
         if(data.xtype === 'file' && data.completed){
             storedData += data.message

@@ -17,9 +17,9 @@ function dataURLtoFile(dataurl, filename) {
     while(n--){
         u8arr[n] = bstr.charCodeAt(n);
     }
-    console.log(mime)
+    
     // console.log(new File([u8arr], filename, {type:mime}))
-    return {type:mime} //new File([u8arr], filename, {type:mime});
+    return {type:mime} 
 }
 
 function downloadBase64File(contentType, base64Data, fileName) {

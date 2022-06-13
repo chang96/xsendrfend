@@ -63,40 +63,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
         setState((state)=> {
             return {loading: true, disabled: true, file: file}
         })
-        // let rec = (offset, file)=>{
-        //     if(offset < file.length){
-        //     const chunkFile = file.slice(offset, offset + chunkSize)
-        //     const chunk =  chunkFile // await.arrayBuffer()
-        //     let frac = (offset + chunkSize)/file.length
-        //     let percent = frac >= 1? 1 : frac
-        //     submitMessage({type: userType.userType, message:chunk, niFile: true, roomName: roomName.name, xtype:"file", completed: percent})
-        //     offset+= chunkSize
-        //     return rec(offset, file) 
-        //     } else {
-        //         console.log('done o')
-        //         setState({
-        //             loading: false,
-        //             disabled: false
-        //         })
-        //     }
-            
-        // }
-        // rec(0, file)
-        // while(offset < file.length){
-        //     const chunkFile = file.slice(offset, offset + chunkSize)
-        //     const chunk =  chunkFile // await.arrayBuffer()
-        //  let frac = (offset + chunkSize)/file.length
-        //  let percent = frac >= 1? 1 : frac 
-        // let updating = {}
-        // submitMessage({type: userType.userType, message:chunk, niFile: true, roomName: roomName.name, xtype:"file", completed: percent})
-        //     offset+= chunkSize
-        // }
-        // // setState({...state, disabled: false})
-        // console.log('done o')
-        //         setState({
-        //             loading: false,
-        //             disabled: false
-        //         })
+       
     }
 
     let rgx = /(?<=data:).*(?=;)/
