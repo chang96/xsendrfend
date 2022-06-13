@@ -20,7 +20,7 @@ function ChartHead({roomName}){
             flexDirection:"row",
             justifyContent:"space-around",
         }}>
-    {<Connected />}
+    {<Connected roomName={roomName} />}
 
             <span className="flex flex-row">
                 <h1
@@ -47,10 +47,10 @@ function ChartHead({roomName}){
         }}
         >
             <span className="flex flex-row">
-            <p 
+            {/* <p 
             className="mr-1"
             >0</p>
-            <p>Connected</p>
+            <p>Connected</p> */}
             </span>
             
         </div>

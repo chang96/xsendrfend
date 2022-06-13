@@ -1,6 +1,6 @@
 import attach from "../../assets/attach.png"
-import {useRef, useContext, useState} from "react"
-import {WebSocketContext} from "../../utils/websocket"
+import {useRef} from "react"
+// import {WebSocketContext} from "../../utils/websocket"
 import {connect} from "react-redux"
 import {newMessageAction, completion} from "../../action/index"
 import {toBase64} from "../../utils/index"
@@ -8,11 +8,10 @@ import {toBase64} from "../../utils/index"
 
 function Attachment({name, color, height, width, onChange, cN, sendMessage, msg, userType, roomName, percentageIncrease}){
     const inputFile = useRef(null)
-    let {submitMessage} = useContext(WebSocketContext)
-    let [state, setState] = useState({
-        display: 'none',
-        completion: 0
-    })
+    // let [state, setState] = useState({
+    //     display: 'none',
+    //     completion: 0
+    // })
     // async function uploadFile(e){
     //     let file = e.target.files[0]
     //     let {roomName} = state
@@ -31,8 +30,8 @@ function Attachment({name, color, height, width, onChange, cN, sendMessage, msg,
        const file = await toBase64(files[0])//files[0]
        sendMessage({type: 'guest', message: file, niFile: true})
        console.log(e.target, name, value, files)
-       let chunkSize = 64*1024
-       let offset = 0
+    //    let chunkSize = 64*1024
+    //    let offset = 0
     //    while(offset < file.length){
     //        const chunkFile = file.slice(offset, offset + chunkSize)
     //        const chunk =  chunkFile // await.arrayBuffer()
@@ -55,24 +54,9 @@ function Attachment({name, color, height, width, onChange, cN, sendMessage, msg,
 
     }
 
-    const handleSending= function(file){
-        let chunkSize = 64*1024
-        let offset = 0
-        while(offset < file.length){
-            const chunkFile = file.slice(offset, offset + chunkSize)
-            const chunk =  chunkFile // await.arrayBuffer()
-         //    console.log(chunk)
-         let frac = (offset + chunkSize)/file.length
-         let percent = frac >= 1? 1 : frac 
-         percentageIncrease(percent)
-         submitMessage({type: userType.userType, message:chunk, niFile: true, roomName: roomName.name, xtype:"file", completed: percent})
  
-         console.log(percent)
-            offset+= chunkSize
-        }
-    }
     return <div className="">
-        <img onClick={()=>handleClick()} src={attach} className="w-8 h-10" /> 
+        <img alt="" onClick={()=>handleClick()} src={attach} className="w-8 h-10" /> 
         <input type="file" ref={inputFile} name={'file'} style={{width: 0, height: 0, color: color, display:"none"}} onChange={(e)=> handleChange(e)} />
     </div>
 }

@@ -21,10 +21,5 @@ let [state, setState] = useState({
     }
 }
 
-const mapStateToProps = state=> {
-    return {
-        ...state
-    }
-  }
 
 export default Input

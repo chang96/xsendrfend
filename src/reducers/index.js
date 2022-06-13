@@ -2,7 +2,8 @@ import { CREATE_SPACE } from "../actionTypes"
 import { CHANGE_NAME } from "../actionTypes"
 import { USER_TYPE } from "../actionTypes"
 import { NEW_MESSAGE } from "../actionTypes"
-import { COMPLETION } from "../actionTypes"
+import { COMPLETION} from "../actionTypes"
+
 // const initialState = {
 //     messageFromServr: [],
 //     createSpace: false,
@@ -53,24 +54,11 @@ const roomNameReducer = function (state, action){
     }
 }
 
-// const guestNumberReducer = function (state, action){
-//     switch(action.type){
-//         case "":
-//             return {
-                
-//             }
-//         default:
-//             return {
-//                 ...state
-//             }
-//     }
-// }
-
 // const joinedReducer = function (state, action){
 //     switch(action.type){
-//         case "":
+//         case NEWUSER:
 //             return {
-                
+//                 users: state.users + 1
 //             }
 //         default:
 //             return {
@@ -79,18 +67,6 @@ const roomNameReducer = function (state, action){
 //     }
 // }
 
-// const responseReducer = function (state, action){
-//     switch(action.type){
-//         case "":
-//             return {
-                
-//             }
-//         default:
-//             return {
-//                 ...state
-//             }
-//     }
-// }
 
 const fromServerReducer = function (state, action){
     switch(action.type){

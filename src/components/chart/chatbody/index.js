@@ -11,11 +11,6 @@ function Download (){
     >⭳</u>
 }
 
-function Send ({file, state, percentageIncrease, userType, roomName, setState}){
-   
-    return 
-}
-
 function Sending(){
     return <div>
         <div className="flex flex-row">Sending File...
@@ -66,9 +61,6 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
         setState((state)=> {
             return {loading: true, disabled: true, file: file}
         })
-        console.log(state)
-        let chunkSize = 64*1024
-        let offset = 0
         // let rec = (offset, file)=>{
         //     if(offset < file.length){
         //     const chunkFile = file.slice(offset, offset + chunkSize)

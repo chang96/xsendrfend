@@ -1,22 +1,21 @@
-import {useState, useEffect} from "react";
-import openSocket from "socket.io-client";
-import ChatBodyAndChatHead from "./components/chart";
-import ChartBody from "./components/chart/chatbody";
-import CreateSpace from "./components/createspace";
-import Description from "./components/description";
-import JoinOrCreate from "./components/joinorcreate";
-import JoinSpace from "./components/joinspace";
-import Logo from "./components/logo";
-import Or from "./elements/or"
-import { connect } from "react-redux";
-import WebSocketProvider, { WebSocketContext } from "./utils/websocket"
+// import {useState, useEffect} from "react";
+// import openSocket from "socket.io-client";
+// import ChatBodyAndChatHead from "./components/chart";
+// import ChartBody from "./components/chart/chatbody";
+// import CreateSpace from "./components/createspace";
+// import Description from "./components/description";
+// import JoinOrCreate from "./components/joinorcreate";
+// import JoinSpace from "./components/joinspace";
+// import Logo from "./components/logo";
+// import Or from "./elements/or"
+// import { connect } from "react-redux";
+import WebSocketProvider from "./utils/websocket"
 // import ss  from "../node_modules/socket.io-stream/socket.io-stream"
-import {toBase64} from "./utils/index"
+// import {toBase64} from "./utils/index"
 import { Provider } from "react-redux";
 import configureStore from "./store/store";
 import Home from "./home";
-const ENDPOINT = "http://localhost:3001"  //"https://obscure-waters-87185.herokuapp.com"
-const socket = openSocket(ENDPOINT, {transports:["websocket"]})
+
 
 
 

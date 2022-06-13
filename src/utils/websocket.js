@@ -1,4 +1,4 @@
-import React, {useEffect, createContext } from 'react'
+import React, {createContext } from 'react'
 // import io from 'socket.io-client';
 // import { WS_BASE } from './config';
 import { useDispatch } from 'react-redux';
@@ -12,7 +12,7 @@ import {
 } from "../action/index"
 
 
-const ENDPOINT = "http://localhost:3001/" //"https://obscure-waters-87185.herokuapp.com"// 
+const ENDPOINT = "https://obscure-waters-87185.herokuapp.com"// "http://localhost:3001/" //
 var storedData =''
 
 const WebSocketContext = createContext(null)

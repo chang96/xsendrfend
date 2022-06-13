@@ -1,7 +1,7 @@
 import logo from "../../assets/logo.png"
 function Logo(){
     return <div className="flex justify-center">
-       <img src={logo} />
+       <img alt="" src={logo} />
     </div>
 }
 

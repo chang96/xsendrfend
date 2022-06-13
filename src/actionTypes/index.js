@@ -6,4 +6,5 @@ export const CHANGE_NAME = "CHANGE_NAME"
 export const NEW_MESSAGE = "NEW_MESSAGE"
 export const USER_TYPE = "USER_TYPE"
 export const COMPLETION = "COMPLETION"
+export const NEWUSER = "NEW_USER"
 

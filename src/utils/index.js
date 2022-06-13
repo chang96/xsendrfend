@@ -31,9 +31,8 @@ function downloadBase64File(contentType, base64Data, fileName) {
 }
 
 function sendMessage(message, sendChunk) {
-  const decoder = new TextDecoder("utf-8");
+  // const decoder = new TextDecoder("utf-8");
 const queuingStrategy = new CountQueuingStrategy({ highWaterMark: 1 });
-let result = "";
 const writableStream = new WritableStream({
 // Implement the sink
 write(chunk) {
@@ -41,7 +40,7 @@ write(chunk) {
     var buffer = new ArrayBuffer(1);
     var view = new Uint8Array(buffer);
     view[0] = chunk;
-    var decoded = decoder.decode(view, { stream: true });
+    // var decoded = decoder.decode(view, { stream: true });
   //   var listItem = document.createElement('li');
   //   listItem.textContent = "Chunk decoded: " + decoded;
   //   list.appendChild(listItem);
@@ -92,5 +91,6 @@ abort(err) {
 export {
     toBase64,
     dataURLtoFile,
-    downloadBase64File
+    downloadBase64File,
+    sendMessage
 }
