@@ -12,8 +12,7 @@ import {
 } from "../action/index"
 
 
-const ENDPOINT = "https://obscure-waters-87185.herokuapp.com"// "http://localhost:3001/" //
-var storedData =''
+const ENDPOINT = "http://localhost:3001/" // "https://obscure-waters-87185.herokuapp.com"// "http://localhost:3001/" //
 
 const WebSocketContext = createContext(null)
 
@@ -79,7 +78,7 @@ export default ({ children }) => {
           })
         
          
-        socket.on("messageFromServer", data=>{
+        // socket.on("messageFromServer", data=>{
         //   setState(state => {
         //     let newMessages = [...state.messageFromServr]
         //     newMessages.push(data)
@@ -87,16 +86,17 @@ export default ({ children }) => {
         //     return obj
         //   })
         // console.log(data)
-        data.type = "owner"
-        if(data.xtype === 'file' && data.completed){
-            storedData += data.message
-            if(data.completed === 1){
-                dispatch(newMessageAction({...data, message: storedData}))
-                storedData =''
-            }
-        } else 
-        dispatch(newMessageAction(data))
-        })
+        // data.type = "owner"
+        // if(data.xtype === 'file' && data.completed){
+        //     storedData += data.message
+        //     if(data.completed === 1){
+        //         dispatch(newMessageAction({...data, message: storedData}))
+        //         storedData =''
+        //     }
+        // } else 
+        // dispatch(newMessageAction(data))
+      
+        // })
 
         ws = {
             socket: socket,
