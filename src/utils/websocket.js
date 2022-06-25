@@ -12,7 +12,7 @@ import {
 } from "../action/index"
 
 
-const ENDPOINT = "http://localhost:3001/" // "https://obscure-waters-87185.herokuapp.com"// "http://localhost:3001/" //
+const ENDPOINT = "https://obscure-waters-87185.herokuapp.com"// "http://localhost:3001/" //
 
 const WebSocketContext = createContext(null)
 
