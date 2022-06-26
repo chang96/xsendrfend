@@ -128,6 +128,11 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
         console.log(userType)
         let done = arr.length === 1? true : false
         submitMessage({type: 'guest', message:arr[0], niFile: true, roomName: roomName.name, xtype:"file", completed: 0, l: arr.length, sender: true, done: done})
+        if(done){
+            setState((state)=> { 
+                return {...state, loading: false, disabled: false, file: '', splitedFile: [], comp:0} 
+            })
+        }
     }
 
     let rgx = /(?<=data:).*(?=;)/
