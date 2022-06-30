@@ -217,10 +217,10 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                 ></object>
                 <span className="flex flex-row">
                     <button
-                    className="font-thin text-sm text-blue-600"
+                    className="font-thin text-sm rounded mt-1 text-white bg-[#001AFF]"
                     onClick={()=> handleClick(message.message)}
                     disabled={state.disabled}
-                    >Send</button>
+                    >Send ☁</button>
                     <span className="text-sm font-thin ml-1">{message.message.match(rgx)}</span>
                 </span>
                 </div>
