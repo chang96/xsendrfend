@@ -16,7 +16,7 @@ import { Provider } from "react-redux";
 import configureStore from "./store/store";
 import Home from "./home";
 import ReactGA from 'react-ga';
-const TRACKING_ID = "G-CM11KZ9SZ3";
+const TRACKING_ID = "UA-102722346-3";
 ReactGA.initialize(TRACKING_ID);
 ReactGA.pageview(window.location.pathname + window.location.search);
 
