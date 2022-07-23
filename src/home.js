@@ -4,8 +4,6 @@ import JoinOrCreate from "./components/joinorcreate";
 import Logo from "./components/logo";
 import { connect } from "react-redux";
 
-
-
 function Home(l) {
   let {joined} = l
  
