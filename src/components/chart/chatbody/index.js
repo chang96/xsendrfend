@@ -111,7 +111,10 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
     }, [state])
 
   
-
+    const removeSlash = function(str){
+        let result = str[0].substring(1)
+        return `.${result}` 
+    }
     const handleClick = function(file){
         let offset = 0
         let chunckSize = 64*1024
@@ -135,8 +138,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
         }
     }
 
-    let rgx = /(?<=data:).*(?=;)/
-
+    let rgx = /(?=\/).*(?=;)/
     return <div
         className="relative bg-[#1B1B1B] w-96 mb-4"
         style={{
@@ -177,7 +179,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                     ></object>
                     <span className="flex flex-row">
                     <a href={message.message} download={Date.now()} ><Download /></a>
-                    <span className="text-sm font-thin ml-1">{message.message.match(rgx)}</span>
+                    <span className="text-sm font-thin ml-1">{removeSlash(message.message.match(rgx))}</span>
                 </span>
                 </div> 
                 } else 
@@ -221,7 +223,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                     onClick={()=> handleClick(message.message)}
                     disabled={state.disabled}
                     >Send ☁</button>
-                    <span className="text-sm font-thin ml-1">{message.message.match(rgx)}</span>
+                    <span className="text-sm font-thin ml-1">{removeSlash(message.message.match(rgx))}</span>
                 </span>
                 </div>
             </div> 
