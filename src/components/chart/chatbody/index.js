@@ -20,7 +20,6 @@ function cutTexts(texts){
         let arr = []
         while(offset < texts.length){
             let chunck = texts.slice(offset, offset+chunckSize)
-            console.log(chunck)
             arr.push(`${chunck}\n`)
             offset+=chunckSize
         }
