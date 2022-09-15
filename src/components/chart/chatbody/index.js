@@ -14,6 +14,20 @@ function Download (){
     />
 }
 
+function cutTexts(texts){
+        let offset = 0
+        let chunckSize = 15
+        let arr = []
+        while(offset < texts.length){
+            let chunck = texts.slice(offset, offset+chunckSize)
+            console.log(chunck)
+            arr.push(`${chunck}\n`)
+            offset+=chunckSize
+        }
+        return arr.join("")
+   
+}
+
 function Sending({comp}){
     return <div>
         <div className="flex flex-row">Sending File...
@@ -150,7 +164,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
         <div className="text-white font-thin">{!state.loading? 'space': <Sending comp={state.comp} />}</div>
         <div
         style={{
-            overflow:"auto",
+            overflowY:"auto",
             height:"70%",
             marginTop:"1px",
             width:"100%"
@@ -191,9 +205,12 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                 }} key={i}>
                 <p
                 style={{
-                    width:"50%"
+                    width:"50%",
+                    backgroundColor:message.message.length>0?"#2D2929":"",
+                    padding:"5px",
+                    borderRadius:"10px"
                 }}
-                >{message.message}</p>
+                >{cutTexts(message.message)}</p>
             </div> 
         } else {
             if(message.niFile){
@@ -230,20 +247,28 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
             } else return    <div
                 style={{
                     display:"flex",
-                    float:"right",
                     width:"100%",
                     justifyContent:"end",
                     color:"white",
-                    padding:"2px"
+                    padding:"2px",
 
                 }}
                 key={i}
                 >
-                    <p
+                    <div
                     style={{
-                        width:""
+                        width:"50%",
+                        textAlign:"left",
+                        display:"flex",
+                        flexWrap:"wrap",
+                        padding:"2px"
                     }}
-                    >{message.message}</p>
+                    ><p style={{
+                        width:"100%",
+                        backgroundColor:message.message.length>0?"#2D2929":"",
+                        padding:"5px",
+                        borderRadius:"10px"
+                    }}>{cutTexts(message.message)}</p></div>
                 </div>
             }
         })}

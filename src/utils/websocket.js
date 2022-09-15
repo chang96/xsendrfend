@@ -58,7 +58,7 @@ export default ({ children }) => {
     //     })
     //   }, [])
 
-    if (!socket) {
+    if (!socket) {  
         socket = openSocket(ENDPOINT, {transports:["websocket"]})
 
         socket.on("newRoomis", (msg) => {
