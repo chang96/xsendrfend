@@ -18,12 +18,14 @@ function cutTexts(texts){
         let offset = 0
         let chunckSize = 15
         let arr = []
+        let text =""
         while(offset < texts.length){
             let chunck = texts.slice(offset, offset+chunckSize)
             arr.push(`${chunck}\n`)
+            text+=`${chunck}\n`
             offset+=chunckSize
         }
-        return arr.join("")
+        return text // arr.join("")
    
 }
 
@@ -207,9 +209,10 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                     width:"50%",
                     backgroundColor:message.message.length>0?"#2D2929":"",
                     padding:"5px",
-                    borderRadius:"10px"
+                    borderRadius:"10px",
+                    wordBreak:"break-all"
                 }}
-                >{cutTexts(message.message)}</p>
+                >{(message.message)}</p>
             </div> 
         } else {
             if(message.niFile){
@@ -266,8 +269,9 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                         width:"100%",
                         backgroundColor:message.message.length>0?"#2D2929":"",
                         padding:"5px",
-                        borderRadius:"10px"
-                    }}>{cutTexts(message.message)}</p></div>
+                        borderRadius:"10px",
+                        wordBreak:"break-all"
+                    }}>{(message.message)}</p></div>
                 </div>
             }
         })}
