@@ -4,8 +4,13 @@ import { connect } from "react-redux"
 import { useContext } from "react";
 import { WebSocketContext } from "../../utils/websocket";
 import { changRoomNameAction } from "../../action/index"
+// import {connectToConnection} from "../../utils/webrtc"
 function JoinSpace({roomName, changeName}){
-    const {joinRoom} = useContext(WebSocketContext)
+    const {joinRoom, connectToConnection} = useContext(WebSocketContext)
+    const handleJoinroom = function(roomName){
+        joinRoom(roomName)
+
+    }
     let onchange = function({name, value}){
         changeName(value)
     }
@@ -16,7 +21,7 @@ function JoinSpace({roomName, changeName}){
         <Btn 
         cN={"bg-white text-blue-600 font-thin hover:bg-blue-700 hover:text-white w-20 h-8"} 
         name="Join"
-        onclick={()=> joinRoom(roomName.name)}
+        onclick={()=> handleJoinroom(roomName.name)}
         />
         </div>
 }

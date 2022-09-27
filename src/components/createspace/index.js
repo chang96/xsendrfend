@@ -3,8 +3,9 @@ import { useEffect } from "react"
 import { useContext } from "react";
 import { WebSocketContext } from "../../utils/websocket";
 import {createSpaceAction} from "../../action/index"
+// import {createConnection} from "../../utils/webrtc"
 function CreateSpace({joined, socket, join}){
-  const {createRoom} = useContext(WebSocketContext)
+  const {createRoom, createConnection} = useContext(WebSocketContext)
 
     return <div 
     style={{backgroundColor:"#001AFF"}}
@@ -29,6 +30,7 @@ function CreateSpace({joined, socket, join}){
         // onClick={()=> join()}
         onClick={()=> {
           createRoom()
+          createConnection()
         }}
         >+</button></div>
         </div>

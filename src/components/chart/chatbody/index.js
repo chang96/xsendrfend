@@ -14,21 +14,6 @@ function Download (){
     />
 }
 
-function cutTexts(texts){
-        let offset = 0
-        let chunckSize = 15
-        let arr = []
-        let text =""
-        while(offset < texts.length){
-            let chunck = texts.slice(offset, offset+chunckSize)
-            arr.push(`${chunck}\n`)
-            text+=`${chunck}\n`
-            offset+=chunckSize
-        }
-        return text // arr.join("")
-   
-}
-
 function Sending({comp}){
     return <div>
         <div className="flex flex-row">Sending File...
@@ -49,7 +34,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
         comp:0,
         splitedFile:[]
     })
-    let {submitMessage, socket} = useContext(WebSocketContext)
+    let {submitMessage, socket, lchannel, remote} = useContext(WebSocketContext)
 
     useEffect(()=>{
         
