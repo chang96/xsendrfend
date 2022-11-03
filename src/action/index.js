@@ -1,4 +1,4 @@
-import { CREATE_SPACE } from "../actionTypes"
+import { CONNECTED, CREATE_SPACE } from "../actionTypes"
 import { CHANGE_NAME } from "../actionTypes"
 import { USER_TYPE } from "../actionTypes"
 import { NEW_MESSAGE } from "../actionTypes"
@@ -48,6 +48,12 @@ const userJoined = function(user){
     }
 }
 
+const connectionEstablished = function(){
+    return {
+        type: CONNECTED
+    }
+}
+
 // const sendMessagAction = function(message){
 //     return {
 //         type: SEND_MESSAGE,
@@ -75,5 +81,6 @@ export {
     changRoomNameAction,
     setUserType,
     newMessageAction,
-    completion
+    completion,
+    connectionEstablished
 }

@@ -3,9 +3,8 @@ import "./index.css"
 import { connect } from "react-redux"
 import {WebSocketContext, } from "../../../utils/websocket"
 import {newMessageAction, completion} from "../../../action/index"
-import {useState, useContext, useEffect} from 'react'
+import {useState, useContext, useEffect, useLayoutEffect} from 'react'
 import download from "../../../assets/download.png"
-import {debounce} from "lodash"
 function Download (){
     return <img
     src={download}
@@ -25,7 +24,7 @@ function Sending({comp}){
         </div>
 }
 var storedData = ''
-
+var index = 0
 function ChartBody({messageFromServr, completion, sendMessage, userType, roomName, percentageIncrease, newMessageDispatch}){
     let [state, setState] = useState({
         loading: false,
@@ -76,6 +75,68 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                 }
             }
         })
+        // const handleDataArrival = dat=>{
+        //     let data = JSON.parse(dat)
+        //     if(data.sender && data.xtype === 'file'){
+        //     data.type = data.sender? "owner" : "guest"
+        //     storedData += data.message 
+        //     console.log(data.completed, data.l)
+        //     if(data.done){ 
+        //      newMessageDispatch(data, storedData) 
+        //      setState((state)=> { 
+        //          return {...state, loading: false, disabled: false, file: '', splitedFile: [], comp:0} 
+        //      }) 
+        //          storedData ='' 
+ 
+        //      } else { 
+        //          let percentSent = (data.completed/data.l)*100
+        //          setState({...state, loading: true, disabled: true, comp: Math.ceil(percentSent)})
+        //          console.log("received", Math.ceil(percentSent)) 
+        //          submitMessage({type: 'owner', niFile: true, roomName: data.roomName, xtype:"file", next: data.completed+1, receiver:true, l:data.l, done: false }) 
+        //      }} else if(data.receiver && data.xtype === 'file'){ 
+        //          console.log(data.next, data.l)
+        //      if(data.next < data.l){ 
+        //          let percentreceived = (data.next/data.l)*100
+        //          console.log('sending again', Math.ceil(percentreceived)) 
+        //          setState({...state, comp: Math.ceil(percentreceived)})
+        //          let done = data.next+1 === data.l? true : false
+        //          if(done){
+        //              setState((state)=> { 
+        //                  return {...state, loading: false, disabled: false, file: '', splitedFile: [], comp:0} 
+        //              })
+        //          }
+        //          submitMessage({type: 'guest', message:state.splitedFile[data.next], niFile: true, roomName: roomName.name, xtype:"file", completed: data.next, l: data.l, sender: true, done:done }) 
+        //      }  
+        //      } else {
+        //          if(data.xtype !== 'file'){
+        //              data.type = 'owner';
+        //              newMessageDispatch(data)
+        //          }
+        //      }
+        //  }
+        //  if(window.lchannel){
+        //     window.lchannel.onmessage = handleDataArrival
+        //     window.lchannel.onbufferedamountlow = (e)=>{
+        //             if(index < state.splitedFile.length-1)
+        //             submitMessage({type: 'guest', message:state.splitedFile[index], niFile: true, roomName: roomName.name, xtype:"file", completed: index, l: state.splitedFile.length, sender: true, done: false})
+        //             else if( index == state.splitedFile.length-1 ){
+        //             submitMessage({type: 'guest', message:state.splitedFile[index], niFile: true, roomName: roomName.name, xtype:"file", completed: index, l: state.splitedFile.length, sender: true, done: true})
+        //             setState((state)=> {
+        //                 return {loading:false, disabled: false, splitedFile:[]}
+        //             })
+        //             index = 0
+        //             }
+        //         index++
+            
+        //     }
+    
+        //  }
+    
+        //  if(window.receive){
+        //     window.receive.onmessage = handleDataArrival
+        //  }
+       
+         
         
         //  let rec = (offset, file)=>{
         //     if(offset < file.length){
@@ -100,6 +161,9 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
         //     }
             
         // }
+
+       
+
         if(state.loading){
             console.log('sending...')
         }
@@ -110,31 +174,110 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
         
     }, [state])
 
-  
+  useLayoutEffect(()=>{
+    const handleDataArrival = dat=>{
+        console.log(dat)
+        let data = JSON.parse(dat.data)
+        if(data.sender && data.xtype === 'file'){
+        data.type = data.sender? "owner" : "guest"
+        storedData += data.message 
+        console.log(data.completed, data.l)
+        if(data.done){
+            console.log("bbbbbbbbbbbbbbb") 
+         newMessageDispatch(data, storedData) 
+         setState((state)=> { 
+             return {...state, loading: false, disabled: false, file: '', splitedFile: [], comp:0} 
+         }) 
+             storedData ='' 
+
+         } else { 
+             let percentSent = (data.completed/data.l)*100
+             setState({...state, loading: true, disabled: true, comp: Math.ceil(percentSent)})
+             console.log("received", Math.ceil(percentSent)) 
+            //  submitMessage({type: 'owner', niFile: true, roomName: data.roomName, xtype:"file", next: data.completed+1, receiver:true, l:data.l, done: false }) 
+         }} else if(data.receiver && data.xtype === 'file'){ 
+             console.log(data.next, data.l)
+         if(data.next < data.l){ 
+             let percentreceived = (data.next/data.l)*100
+             console.log('sending again', Math.ceil(percentreceived)) 
+             setState({...state, comp: Math.ceil(percentreceived)})
+             let done = data.next+1 === data.l? true : false
+             if(done){
+                 setState((state)=> { 
+                     return {...state, loading: false, disabled: false, file: '', splitedFile: [], comp:0} 
+                 })
+             }
+             submitMessage({type: 'guest', message:state.splitedFile[data.next], niFile: true, roomName: roomName.name, xtype:"file", completed: data.next, l: data.l, sender: true, done:done }) 
+         }  
+         } else {
+             if(data.xtype !== 'file'){
+                 data.type = 'owner';
+                 newMessageDispatch(data)
+             }
+         }
+     }
+     if(window.lchannel){
+        window.lchannel.onmessage = handleDataArrival
+        window.lchannel.onbufferedamountlow = (e)=>{
+                if(index < state.splitedFile.length-1)
+                submitMessage({type: 'guest', message:state.splitedFile[index], niFile: true, roomName: roomName.name, xtype:"file", completed: index, l: state.splitedFile.length, sender: true, done: false})
+                else if( index == state.splitedFile.length-1 ){
+                submitMessage({type: 'guest', message:state.splitedFile[index], niFile: true, roomName: roomName.name, xtype:"file", completed: index, l: state.splitedFile.length, sender: true, done: true})
+                setState((state)=> {
+                    return {loading:false, disabled: false, splitedFile:[]}
+                })
+                index = 0
+                }
+            index++
+        
+        }
+
+     }
+     if(window.receive){
+        window.receive.onmessage = handleDataArrival
+     }
+
+     if(!window.receive && userType.userType === "guest"){
+        setTimeout(() => window.receive? window.receive.onmessage = handleDataArrival : null, 2000)
+     }
+  })
     const removeSlash = function(str){
-        let result = str[0].substring(1)
+        let tostr = String(str)
+        let result = tostr.substring(1)
         return `.${result}` 
     }
     const handleClick = function(file){
         let offset = 0
-        let chunckSize = 64*1024
+        let chunckSize = 16*254 //64*1024
         let arr = []
         while(offset < file.length){
             let chunck = file.slice(offset, offset+chunckSize)
             arr.push(chunck)
             offset+=chunckSize
+            console.log("slicing")
         }
         
         setState((state)=> {
             return {loading: true, disabled: true, splitedFile:arr}
         })
-        console.log(userType)
-        let done = arr.length === 1? true : false
-        submitMessage({type: 'guest', message:arr[0], niFile: true, roomName: roomName.name, xtype:"file", completed: 0, l: arr.length, sender: true, done: done})
-        if(done){
-            setState((state)=> { 
-                return {...state, loading: false, disabled: false, file: '', splitedFile: [], comp:0} 
+        // let done = arr.length === 1? true : false
+        // submitMessage({type: 'guest', message:arr[0], niFile: true, roomName: roomName.name, xtype:"file", completed: 0, l: arr.length, sender: true, done: done})
+        // if(done){
+        //     setState((state)=> { 
+        //         return {...state, loading: false, disabled: false, file: '', splitedFile: [], comp:0} 
+        //     })
+        // }
+        for(let i=0; i<arr.length;i++){
+            index = i
+            if(i < arr.length-1)
+            submitMessage({type: 'guest', message:arr[i], niFile: true, roomName: roomName.name, xtype:"file", completed: i, l: arr.length, sender: true, done: false})
+            else if( i == arr.length-1 ){
+            submitMessage({type: 'guest', message:arr[i], niFile: true, roomName: roomName.name, xtype:"file", completed: i, l: arr.length, sender: true, done: true})
+            setState((state)=> {
+                return {loading:false, disabled: false, splitedFile:[]}
             })
+            }
+
         }
     }
 
@@ -195,7 +338,8 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                     backgroundColor:message.message.length>0?"#2D2929":"",
                     padding:"5px",
                     borderRadius:"10px",
-                    wordBreak:"break-all"
+                    wordBreak:"break-all",
+                    height:"35px"
                 }}
                 >{(message.message)}</p>
             </div> 
@@ -255,7 +399,9 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                         backgroundColor:message.message.length>0?"#2D2929":"",
                         padding:"5px",
                         borderRadius:"10px",
-                        wordBreak:"break-all"
+                        wordBreak:"break-all",
+                        height:"35px"
+
                     }}>{(message.message)}</p></div>
                 </div>
             }

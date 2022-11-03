@@ -1,4 +1,3 @@
-import { reverse } from 'lodash';
 import React, {createContext } from 'react'
 // import io from 'socket.io-client';
 // import { WS_BASE } from './config';
@@ -9,11 +8,12 @@ import {
     createSpaceAction, 
     changRoomNameAction,
     setUserType,
-    newMessageAction
+    newMessageAction,
+    connectionEstablished
 } from "../action/index"
 
 
-const ENDPOINT = "http://localhost:3001/" //"https://obscure-waters-87185.herokuapp.com"// 
+const ENDPOINT =  "https://obscure-waters-87185.herokuapp.com"//"http://localhost:3001/"  //
 
 const WebSocketContext = createContext(null)
 
@@ -41,13 +41,18 @@ export default ({ children }) => {
     }
 
     function submitMessage(data){
-        
-        socket.emit("messageFromClient", {...data})
+        if(statusOwner){
+        lchannel.send(JSON.stringify(data))
+        } else {
+        remote.channel.send(JSON.stringify(data))
+        }
+        // socket.emit("messageFromClient", {...data})
       }
     
       async function createConnection(){
-         window.local = local = new RTCPeerConnection()
-        console.log(local)
+          window.local = local = new RTCPeerConnection()
+          console.log(local)
+          
           local.onicecandidate = e => {
             let offer = JSON.stringify(local.localDescription)
             console.log(offer)
@@ -55,11 +60,16 @@ export default ({ children }) => {
           }
           
           lchannel = local.createDataChannel("channel")
-          lchannel.onopen = ()=> console.log("opened")
+          window.lchannel = lchannel
+          lchannel.onopen = ()=> {
+            dispatch(connectionEstablished())
+          }
           lchannel.onclose = ()=> console.log("closed")
-          lchannel.onmessage = ({data})=> console.log(data)
+          lchannel.onbufferedamountlow = (e)=>console.log(e, "low buffer")
+          lchannel.onmessage = ({data})=> console.log(JSON.parse(data))
           await local.createOffer().then(async o=> await local.setLocalDescription(o))
     }
+    
 
     async function connectToConnection(offer, data){
          if(offer){ 
@@ -74,12 +84,17 @@ export default ({ children }) => {
         }
         remote.ondatachannel = ({channel}) => {
         const receive = channel
-        receive.onopen = ()=> console.log("opened")
+        window.receive = receive
+        receive.onopen = ()=> {
+          dispatch(connectionEstablished())
+          console.log("opened")
+        }
         receive.onclose = ()=> console.log("closed")
-        receive.onmessage = ({data})=> console.log(data)
+        receive.onmessage = ({data})=> console.log(JSON.parse(data))
         receive.onerror= (e)=> console.log(e)
         remote.channel = receive 
-      }}
+      }
+    }
       await remote.setRemoteDescription(offer)
       await remote.createAnswer().then(async a=> await remote.setLocalDescription(a))
       }
@@ -141,7 +156,7 @@ export default ({ children }) => {
         // dispatch(newMessageAction(data))
       
         // })
-
+         console.log(lchannel, remote, "lchannel and remote")
         ws = {
             socket: socket,
             sendMessage: sendMessage,

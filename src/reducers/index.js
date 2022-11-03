@@ -1,4 +1,4 @@
-import { CREATE_SPACE } from "../actionTypes"
+import { CONNECTED, CREATE_SPACE } from "../actionTypes"
 import { CHANGE_NAME } from "../actionTypes"
 import { USER_TYPE } from "../actionTypes"
 import { NEW_MESSAGE } from "../actionTypes"
@@ -106,6 +106,19 @@ const completionReducer = function(state,action){
             }
     }
 }
+
+const connectionEstablishedReducer = function (state, action){
+    switch(action.type){
+        case CONNECTED:
+            return {
+                connected: true
+            }
+        default: 
+            return {
+                ...state
+            }
+    }
+}
 export {
     createSpaceReducer,
     messageReducer,
@@ -115,5 +128,6 @@ export {
     // guestNumberReducer,
     // responseReducer
     setUserTypeReducer,
-    completionReducer
+    completionReducer,
+    connectionEstablishedReducer
 }
