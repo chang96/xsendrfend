@@ -3,6 +3,7 @@ import React, {createContext } from 'react'
 // import { WS_BASE } from './config';
 import { useDispatch } from 'react-redux';
 // import { updateChatLog } from './actions';
+import { debounce } from 'lodash';
 import openSocket from "socket.io-client";
 import {
     createSpaceAction, 
@@ -12,7 +13,17 @@ import {
     connectionEstablished
 } from "../action/index"
 
-
+const servers = {
+  iceServers: [
+    {
+      urls: [
+        "stun:stun.stunprotocol.org",
+        "stun:stun.l.google.com:19302",
+        "stun:stun1.l.google.com:19302",
+      ],
+    },
+  ],
+};
 const ENDPOINT =  "https://obscure-waters-87185.herokuapp.com"//"http://localhost:3001/"  //
 
 const WebSocketContext = createContext(null)
@@ -50,12 +61,11 @@ export default ({ children }) => {
       }
     
       async function createConnection(){
-          window.local = local = new RTCPeerConnection()
-          console.log(local)
-          
+          window.local = local = new RTCPeerConnection(servers)
+          // window.local = local
           local.onicecandidate = e => {
             let offer = JSON.stringify(local.localDescription)
-            console.log(offer)
+            console.log("offer::::::", offer)
             window.localStorage.setItem("offer", offer)
           }
           
@@ -65,22 +75,29 @@ export default ({ children }) => {
             dispatch(connectionEstablished())
           }
           lchannel.onclose = ()=> console.log("closed")
+          lchannel.onerror = (e)=> console.log(e)
           lchannel.onbufferedamountlow = (e)=>console.log(e, "low buffer")
           lchannel.onmessage = ({data})=> console.log(JSON.parse(data))
           await local.createOffer().then(async o=> await local.setLocalDescription(o))
     }
     
-
+var lim = 0
     async function connectToConnection(offer, data){
          if(offer){ 
-          window.remote = remote = new RTCPeerConnection()
+          window.remote = remote = new RTCPeerConnection(servers)
           console.log(offer, remote)
           remote.onicecandidate = e => {
-          let answer = JSON.stringify(remote.localDescription)
+          if(lim == 0){
+            let answer = JSON.stringify(remote.localDescription)
 
-          console.log(answer, e)
-          console.log("now sendingnngngnngn",answer)
-          socket.emit("offerReceived", {"answer": answer, room: data.room})
+            console.log(answer, e)
+            console.log("now sendingnngngnngn",answer)
+            socket.emit("offerReceived", {"answer": answer, room: data.room})
+            lim = 1
+          } else {
+            return;
+          }
+        
         }
         remote.ondatachannel = ({channel}) => {
         const receive = channel
@@ -112,7 +129,7 @@ export default ({ children }) => {
             dispatch(changRoomNameAction(msg))
         })
         socket.on("joinedRoom", data=>{
-            // console.log(data)
+            console.log(data)
             // alert(`new client connected to ${data.room}`)
             let offer = window.localStorage.getItem("offer")
             socket.emit("offer", {"offer": JSON.parse(offer), "room": data.room})
@@ -123,6 +140,7 @@ export default ({ children }) => {
           })
         
          socket.on("offerSent", async function(data){
+
             if(data.offer && statusReceiver === "guest" && statusOwner === undefined){
                 console.log("offer::", data, statusOwner, statusReceiver)
                 await connectToConnection(data.offer, data)

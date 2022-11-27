@@ -3,6 +3,7 @@ import { useEffect } from "react"
 import { useContext } from "react";
 import { WebSocketContext } from "../../utils/websocket";
 import {createSpaceAction} from "../../action/index"
+import { debounce } from "lodash";
 // import {createConnection} from "../../utils/webrtc"
 function CreateSpace({joined, socket, join}){
   const {createRoom, createConnection} = useContext(WebSocketContext)
@@ -28,9 +29,9 @@ function CreateSpace({joined, socket, join}){
           fontSize:"18px",
         }}
         // onClick={()=> join()}
-        onClick={()=> {
-          createRoom()
-          createConnection()
+        onClick={async ()=> {
+            createRoom()
+            await createConnection()
         }}
         >+</button></div>
         </div>
