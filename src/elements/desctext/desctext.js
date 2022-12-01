@@ -10,10 +10,10 @@ function DescText(){
     return <div style={{
         zIndex:10
     }} className="w-full absolute sm:relative">
-        <div className="absolute sm:mt-56"><h1 
+        <div className="absolute sm:mt-[16vh]"><h1 
         style={{fontFamily:"", zIndex:2}}
-        className="text-white text-center font-bold text-6xl mb-5">
-            SEND FILES & TEXTS INSTANTLY</h1>
+        className="text-white text-center font-bold text-5xl mb-5 sm:text-6xl sm:mb-0">
+            SEND FILES & TEXTS INSTANTLY WITH WEBRTC</h1>
         <Caption /></div>
     </div>
 }
