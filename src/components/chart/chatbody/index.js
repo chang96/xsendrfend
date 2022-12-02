@@ -25,7 +25,7 @@ function Sending({comp}){
 }
 var storedData = ''
 var index = 0
-function ChartBody({messageFromServr, completion, sendMessage, userType, roomName, percentageIncrease, newMessageDispatch}){
+function ChartBody({messageFromServr, completion, sendMessage, userType, roomName, percentageIncrease, newMessageDispatch, queued}){
     let [state, setState] = useState({
         loading: false,
         disabled: false,
@@ -75,6 +75,8 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                 }
             }
         })
+
+        console.log("QUEUEDD",queued)
         // const handleDataArrival = dat=>{
         //     let data = JSON.parse(dat)
         //     if(data.sender && data.xtype === 'file'){
@@ -345,36 +347,40 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
             </div> 
         } else {
             if(message.niFile){
-                return <div style={{
-                    display:"flex",
-                    float:"right",
-                    width:"100%",
-                    justifyContent:"end",
-                    color:"white",
-                    padding:"2px",
-                }} key={i}>
-                    {/* <p className="font-thin from-neutral-400 text-sm">{(state.comp)}/100</p> */}
-                <div>
-                <object
-                style={{
-                    width:"120px",
-                    height:'60px',
-                    border:"1px solid blue",
-                    borderRadius:"10px"
-                }}
-                data={message.message}
-                
-                ></object>
-                <span className="flex flex-row">
-                    <button
-                    className="font-thin text-sm rounded mt-1 text-white bg-[#001AFF]"
-                    onClick={()=> handleClick(message.message)}
-                    disabled={state.disabled}
-                    >Send ☁</button>
-                    <span className="text-sm font-thin ml-1">{removeSlash(message.message.match(rgx))}</span>
-                </span>
-                </div>
-            </div> 
+                return message.message.map((message, j)=>{
+                    console.log(message)
+                    return <div style={{
+                        display:"flex",
+                        float:"right",
+                        width:"100%",
+                        justifyContent:"end",
+                        color:"white",
+                        padding:"2px",
+                    }} key={j}>
+                        {/* <p className="font-thin from-neutral-400 text-sm">{(state.comp)}/100</p> */}
+                    <div>
+                    <object
+                    style={{
+                        width:"120px",
+                        height:'60px',
+                        border:"1px solid blue",
+                        borderRadius:"10px"
+                    }}
+                    data={message}
+                    
+                    ></object>
+                    <span className="flex flex-row">
+                        <button
+                        className="font-thin text-sm rounded mt-1 text-white bg-[#001AFF]"
+                        onClick={()=> handleClick(message)}
+                        disabled={state.disabled}
+                        >Send ☁</button>
+                        <span className="text-sm font-thin ml-1">{removeSlash(message.match(rgx))}</span>
+                    </span>
+                    </div>
+                </div> 
+                })
+            
             } else return    <div
                 style={{
                     display:"flex",

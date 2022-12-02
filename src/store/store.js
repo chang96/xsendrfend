@@ -9,7 +9,8 @@ import {
     // responseReducer
     setUserTypeReducer,
     completionReducer,
-    connectionEstablishedReducer
+    connectionEstablishedReducer,
+    setUpQueueReducer
 } from "../reducers/index"
 const rootReducer = combineReducers({
     joined: createSpaceReducer,
@@ -21,7 +22,8 @@ const rootReducer = combineReducers({
     // response: responseReducer
     userType: setUserTypeReducer,
     completion: completionReducer,
-    connected: connectionEstablishedReducer
+    connected: connectionEstablishedReducer,
+    queued: setUpQueueReducer
 })
 
 const initialState = {
@@ -36,8 +38,10 @@ const initialState = {
     userType:{userType: ""},
     message:{message: ""},
     completion: {completion:0},
-    connected:{connected: false}
-    // response:""
+    connected:{connected: false},
+    queued: {
+        queued: []
+    }
 }
 
 

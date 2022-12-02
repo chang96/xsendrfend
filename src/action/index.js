@@ -1,4 +1,4 @@
-import { CONNECTED, CREATE_SPACE } from "../actionTypes"
+import { CONNECTED, CREATE_SPACE, NEWQUEUE } from "../actionTypes"
 import { CHANGE_NAME } from "../actionTypes"
 import { USER_TYPE } from "../actionTypes"
 import { NEW_MESSAGE } from "../actionTypes"
@@ -54,6 +54,13 @@ const connectionEstablished = function(){
     }
 }
 
+const setUpQueue = function(payload){
+    return {
+        type: NEWQUEUE,
+        payload
+    }
+}
+
 // const sendMessagAction = function(message){
 //     return {
 //         type: SEND_MESSAGE,
@@ -82,5 +89,6 @@ export {
     setUserType,
     newMessageAction,
     completion,
-    connectionEstablished
+    connectionEstablished,
+    setUpQueue
 }

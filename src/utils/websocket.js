@@ -24,7 +24,7 @@ const servers = {
     },
   ],
 };
-const ENDPOINT =  "https://obscure-waters-87185.herokuapp.com"//"http://localhost:3001/"  //
+const ENDPOINT = "http://140.238.157.123:3001"//  "https://obscure-waters-87185s.herokuapp.com"//"http://localhost:3001/"  //
 
 const WebSocketContext = createContext(null)
 
@@ -129,12 +129,15 @@ var lim = 0
             dispatch(changRoomNameAction(msg))
         })
         socket.on("joinedRoom", data=>{
-            console.log(data)
+            console.log(data, statusOwner)
             // alert(`new client connected to ${data.room}`)
             let offer = window.localStorage.getItem("offer")
             socket.emit("offer", {"offer": JSON.parse(offer), "room": data.room})
-            dispatch(setUserType("guest"))
-            statusReceiver = "guest"
+            if(!statusOwner){
+              dispatch(setUserType("guest"))
+              statusReceiver = "guest"
+            }
+            
             dispatch(createSpaceAction())
             dispatch(changRoomNameAction(data.room))
           })
