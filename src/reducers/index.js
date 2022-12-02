@@ -124,7 +124,7 @@ const setUpQueueReducer = function(state, action){
     switch(action.type){
         case NEWQUEUE:
             return {
-                queued: [...action.queue]
+                queued: [...action.payload]
             }
         default:
             return {
