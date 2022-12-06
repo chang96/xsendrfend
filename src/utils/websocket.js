@@ -24,7 +24,7 @@ const servers = {
     },
   ],
 };
-const ENDPOINT = "https://xendr.onrender.com" //"https://140.238.157.123:3001"//  "https://obscure-waters-87185s.herokuapp.com"//"http://localhost:3001/"  //
+const ENDPOINT = "https://obscure-waters-87185.herokuapp.com"; "https://xendr.onrender.com" //"https://140.238.157.123:3001"//  "https://obscure-waters-87185s.herokuapp.com"//"http://localhost:3001/"  //
 
 const WebSocketContext = createContext(null)
 
