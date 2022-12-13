@@ -99,6 +99,7 @@ var lim = 0
           }
         
         }
+        dispatch(connectionEstablished("pl"))
         remote.ondatachannel = ({channel}) => {
         const receive = channel
         window.receive = receive
@@ -155,6 +156,8 @@ var lim = 0
          socket.on("answerSent", async function(data){
             if(data.answer && statusOwner === "owner"){
               console.log(data.answer)
+              //loading here
+              dispatch(connectionEstablished("pl"))
               await local.setRemoteDescription(JSON.parse(data.answer))
             }
          })

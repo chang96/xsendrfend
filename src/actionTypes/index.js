@@ -8,4 +8,5 @@ export const USER_TYPE = "USER_TYPE"
 export const COMPLETION = "COMPLETION"
 export const NEWUSER = "NEW_USER"
 export const CONNECTED = "CONNECTED"
+export const CONNECTING = "CONNECTING"
 

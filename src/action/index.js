@@ -1,9 +1,12 @@
-import { CONNECTED, CREATE_SPACE } from "../actionTypes"
-import { CHANGE_NAME } from "../actionTypes"
-import { USER_TYPE } from "../actionTypes"
-import { NEW_MESSAGE } from "../actionTypes"
-import { COMPLETION, NEWUSER } from "../actionTypes"
-
+import { CONNECTED,
+        CONNECTING,
+        CREATE_SPACE,
+        CHANGE_NAME,
+        USER_TYPE,
+        NEW_MESSAGE,
+        COMPLETION, 
+        NEWUSER 
+     } from "../actionTypes"
 
 const createSpaceAction = function(){
     return {
@@ -48,12 +51,25 @@ const userJoined = function(user){
     }
 }
 
-const connectionEstablished = function(){
-    return {
-        type: CONNECTED
+const connectionEstablished = function(payload){
+    if(!payload){
+        return {
+            type: CONNECTED
+        }
+    } else {
+        return {
+            type: CONNECTING,
+            payload: payload
+        }
     }
+   
 }
 
+const connecting = function (){
+    return {
+        type: CONNECTING
+    }
+}
 // const sendMessagAction = function(message){
 //     return {
 //         type: SEND_MESSAGE,
@@ -82,5 +98,6 @@ export {
     setUserType,
     newMessageAction,
     completion,
-    connectionEstablished
+    connectionEstablished,
+    connecting
 }
