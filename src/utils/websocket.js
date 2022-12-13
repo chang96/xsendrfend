@@ -24,7 +24,7 @@ const servers = {
     },
   ],
 };
-const ENDPOINT = "http://140.238.157.123:3001"//  "https://obscure-waters-87185s.herokuapp.com"//"http://localhost:3001/"  //
+const ENDPOINT = "https://obscure-waters-87185.herokuapp.com"; // "https://xendr.onrender.com" //"https://140.238.157.123:3001"//  "https://obscure-waters-87185s.herokuapp.com"//"http://localhost:3001/"  //
 
 const WebSocketContext = createContext(null)
 
@@ -74,7 +74,7 @@ export default ({ children }) => {
           lchannel.onopen = ()=> {
             dispatch(connectionEstablished())
           }
-          lchannel.onclose = ()=> console.log("closed")
+          lchannel.onclose = ()=> dispatch(connectionEstablished())
           lchannel.onerror = (e)=> console.log(e)
           lchannel.onbufferedamountlow = (e)=>console.log(e, "low buffer")
           lchannel.onmessage = ({data})=> console.log(JSON.parse(data))
@@ -99,6 +99,7 @@ var lim = 0
           }
         
         }
+        dispatch(connectionEstablished("pl"))
         remote.ondatachannel = ({channel}) => {
         const receive = channel
         window.receive = receive
@@ -106,7 +107,7 @@ var lim = 0
           dispatch(connectionEstablished())
           console.log("opened")
         }
-        receive.onclose = ()=> console.log("closed")
+        receive.onclose = ()=> dispatch(connectionEstablished())
         receive.onmessage = ({data})=> console.log(JSON.parse(data))
         receive.onerror= (e)=> console.log(e)
         remote.channel = receive 
@@ -155,6 +156,8 @@ var lim = 0
          socket.on("answerSent", async function(data){
             if(data.answer && statusOwner === "owner"){
               console.log(data.answer)
+              //loading here
+              dispatch(connectionEstablished("pl"))
               await local.setRemoteDescription(JSON.parse(data.answer))
             }
          })

@@ -9,4 +9,5 @@ export const COMPLETION = "COMPLETION"
 export const NEWUSER = "NEW_USER"
 export const CONNECTED = "CONNECTED"
 export const NEWQUEUE = "NEWQUEUE"
+export const CONNECTING = "CONNECTING"
 

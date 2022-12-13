@@ -1,8 +1,12 @@
-import { CONNECTED, CREATE_SPACE, NEWQUEUE } from "../actionTypes"
-import { CHANGE_NAME } from "../actionTypes"
-import { USER_TYPE } from "../actionTypes"
-import { NEW_MESSAGE } from "../actionTypes"
-import { COMPLETION} from "../actionTypes"
+import { CONNECTED,
+    CONNECTING,
+    CREATE_SPACE,
+    CHANGE_NAME,
+    USER_TYPE,
+    NEW_MESSAGE,
+    COMPLETION, 
+    NEWQUEUE
+ } from "../actionTypes";
 
 // const initialState = {
 //     messageFromServr: [],
@@ -111,7 +115,11 @@ const connectionEstablishedReducer = function (state, action){
     switch(action.type){
         case CONNECTED:
             return {
-                connected: true
+                connected: state.connected === true? false : state.connected === false? true : true
+            }
+        case CONNECTING: 
+            return {
+                connected: "CONNECTING"
             }
         default: 
             return {

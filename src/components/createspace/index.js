@@ -1,13 +1,13 @@
 import { connect } from "react-redux"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useContext } from "react";
 import { WebSocketContext } from "../../utils/websocket";
 import {createSpaceAction} from "../../action/index"
-import { debounce } from "lodash";
+import loader from "../../assets/loader.svg"
 // import {createConnection} from "../../utils/webrtc"
 function CreateSpace({joined, socket, join}){
   const {createRoom, createConnection} = useContext(WebSocketContext)
-
+  const [loading, setLoading] = useState(false)
     return <div 
     style={{backgroundColor:"#001AFF"}}
     className="w-72 h-32 rounded-md flex justify-center"
@@ -15,7 +15,17 @@ function CreateSpace({joined, socket, join}){
         <div
         style={{textAlign:"center", paddingTop:"15%"}}
         >
-        <p className="text-white">Create Faax Space</p>
+        {/* <div>xx</div> */}
+        {
+          loading?
+          <div className="flex flex-row">
+          <p className="text-white">Creating Faax Space</p> <img className="w-8 h-8" src={loader}/>
+        </div> :
+         <div className="flex flex-row">
+         <p className="text-white">Create Faax Space</p>
+       </div>
+        }
+       
         
         <div 
         style={{}}
@@ -30,6 +40,7 @@ function CreateSpace({joined, socket, join}){
         }}
         // onClick={()=> join()}
         onClick={async ()=> {
+            setLoading(true)
             createRoom()
             await createConnection()
         }}
