@@ -28,7 +28,7 @@ function Attachment({name, color, height, width, onChange, cN, sendMessage, msg,
  
     return <div className="">
         <img alt="" onClick={()=>handleClick()} src={attach} className="w-8 h-10" /> 
-        <input type="file" multiple ref={inputFile} name={'file'} style={{width: 0, height: 0, color: color, display:"none"}} onChange={(e)=> handleChange(e)} />
+        <input type="file" ref={inputFile} name={'file'} style={{width: 0, height: 0, color: color, display:"none"}} onChange={(e)=> handleChange(e)} />
     </div>
 }
 
@@ -47,3 +47,4 @@ const mapDispatchToProps = dispatch =>{
 }
 
 export default connect(mapStateToProps, mapDispatchToProps)(Attachment)
+``

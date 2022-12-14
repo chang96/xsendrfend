@@ -77,6 +77,10 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
         })
 
         console.log("QUEUEDD",queued)
+        if(queued.queued.length > 0){
+            handleClick(queued.queued[0])
+            queued.queued.shift()
+        }
         // const handleDataArrival = dat=>{
         //     let data = JSON.parse(dat)
         //     if(data.sender && data.xtype === 'file'){
@@ -174,7 +178,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
             socket.off('messageFromServer')
         }
         
-    }, [state])
+    }, [state, queued])
 
   useLayoutEffect(()=>{
     const handleDataArrival = dat=>{
@@ -348,7 +352,6 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
         } else {
             if(message.niFile){
                 return message.message.map((message, j)=>{
-                    console.log(message)
                     return <div style={{
                         display:"flex",
                         float:"right",
