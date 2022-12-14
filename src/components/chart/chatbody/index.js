@@ -345,7 +345,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                     padding:"5px",
                     borderRadius:"10px",
                     wordBreak:"break-all",
-                    height:"35px"
+                    // height:"35px"
                 }}
                 >{(message.message)}</p>
             </div> 
@@ -409,7 +409,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                         padding:"5px",
                         borderRadius:"10px",
                         wordBreak:"break-all",
-                        height:"35px"
+                        // height:"35px"
 
                     }}>{(message.message)}</p></div>
                 </div>
