@@ -22,9 +22,24 @@ const servers = {
         "stun:stun1.l.google.com:19302",
       ],
     },
+    {
+      urls: "turn:relay.metered.ca:80",
+      username: "6bab8bf16065c49f92a874ad",
+      credential: "FidJuZ2TMKrsY0BH",
+    },
+    {
+      urls: "turn:relay.metered.ca:443",
+      username: "6bab8bf16065c49f92a874ad",
+      credential: "FidJuZ2TMKrsY0BH",
+    },
+    {
+      urls: "turn:relay.metered.ca:443?transport=tcp",
+      username: "6bab8bf16065c49f92a874ad",
+      credential: "FidJuZ2TMKrsY0BH",
+    },
   ],
 };
-const ENDPOINT = "https://obscure-waters-87185.herokuapp.com"; // "https://xendr.onrender.com" //"https://140.238.157.123:3001"//  "https://obscure-waters-87185s.herokuapp.com"//"http://localhost:3001/"  //
+const ENDPOINT = "https://sandysun.com.ng" //"https://obscure-waters-87185.herokuapp.com"; // "https://xendr.onrender.com" //"https://140.238.157.123:3001"//  "https://obscure-waters-87185s.herokuapp.com"//"http://localhost:3001/"  //
 
 const WebSocketContext = createContext(null)
 
