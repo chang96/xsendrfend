@@ -39,7 +39,7 @@ const servers = {
     },
   ],
 };
-const ENDPOINT = "https://sandysun.com.ng" //"https://obscure-waters-87185.herokuapp.com"; // "https://xendr.onrender.com" //"https://140.238.157.123:3001"//  "https://obscure-waters-87185s.herokuapp.com"//"http://localhost:3001/"  //
+const ENDPOINT = "https://faax.sandymoon.com.ng" //"https://obscure-waters-87185.herokuapp.com"; // "https://xendr.onrender.com" //"https://140.238.157.123:3001"//  "https://obscure-waters-87185s.herokuapp.com"//"http://localhost:3001/"  //
 
 const WebSocketContext = createContext(null)
 
