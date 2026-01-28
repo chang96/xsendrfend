@@ -1,6 +1,6 @@
 import {useState} from "react"
 function Input({name, color, height, width, onChange, cN, ta, msg}){
-let [state, setState] = useState({
+let [, setState] = useState({
     name: name,
     value:msg
 })

@@ -12,7 +12,7 @@ function Attachment({name, color, height, width, onChange, cN, sendMessage, msg,
     }
     const handleChange = async (e)=>{
        let base64s = []
-       const {name, value, files} = e.target
+       const {files} = e.target
        for(let i = 0; i<files.length; i++){
         let file = files.item(i)
         let base64 = await toBase64(file)

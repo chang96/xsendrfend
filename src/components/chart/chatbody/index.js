@@ -33,7 +33,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
         comp:0,
         splitedFile:[]
     })
-    let {submitMessage, socket, lchannel, remote} = useContext(WebSocketContext)
+    let {submitMessage, socket} = useContext(WebSocketContext)
 
     useEffect(()=>{
         

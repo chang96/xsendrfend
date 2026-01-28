@@ -1,5 +1,5 @@
 import { connect } from "react-redux"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useContext } from "react";
 import { WebSocketContext } from "../../utils/websocket";
 import {createSpaceAction} from "../../action/index"
@@ -19,7 +19,7 @@ function CreateSpace({joined, socket, join}){
         {
           loading?
           <div className="flex flex-row">
-          <p className="text-white">Creating Faax Space</p> <img className="w-8 h-8" src={loader}/>
+          <p className="text-white">Creating Faax Space</p> <img alt="" className="w-8 h-8" src={loader}/>
         </div> :
          <div className="flex flex-row">
          <p className="text-white">Create Faax Space</p>

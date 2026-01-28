@@ -6,7 +6,7 @@ import { WebSocketContext } from "../../utils/websocket";
 import { changRoomNameAction } from "../../action/index"
 // import {connectToConnection} from "../../utils/webrtc"
 function JoinSpace({roomName, changeName}){
-    const {joinRoom, connectToConnection} = useContext(WebSocketContext)
+    const {joinRoom} = useContext(WebSocketContext)
     const handleJoinroom = function(roomName){
         joinRoom(roomName)
 
