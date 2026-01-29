@@ -14,23 +14,39 @@ import {
 const servers = {
   iceServers: [
     {
+      urls: "stun:stun.relay.metered.ca:80",
+    },
+    {
       urls: "stun:stun.cloudflare.com:3478",
     },
     {
       urls: "stun:stunserver2025.stunprotocol.org:3478",
     },
     {
-      urls: [
-        "turns:relay.metered.ca:443?transport=tcp",
-        "turn:relay.metered.ca:443", 
-        "turn:relay.metered.ca:80"
-      ]
+      urls: "turn:standard.relay.metered.ca:80",
+      username: "07fc3c3fb232f64af572f17c",
+      credential: "a4LU2i7+lT4Ccnia",
+    },
+    {
+      urls: "turn:standard.relay.metered.ca:80?transport=tcp",
+      username: "07fc3c3fb232f64af572f17c",
+      credential: "a4LU2i7+lT4Ccnia",
+    },
+    {
+      urls: "turn:standard.relay.metered.ca:443",
+      username: "07fc3c3fb232f64af572f17c",
+      credential: "a4LU2i7+lT4Ccnia",
+    },
+    {
+      urls: "turns:standard.relay.metered.ca:443?transport=tcp",
+      username: "07fc3c3fb232f64af572f17c",
+      credential: "a4LU2i7+lT4Ccnia",
     },
   ],
   iceCandidatePoolSize: 2,
 };
 
-const ENDPOINT = "https://faax.sandymoon.com.ng" 
+const ENDPOINT = "https://faax.sandymoon.com.ng"
 const CONNECTION_TIMEOUT = 30000;
 
 const WebSocketContext = createContext(null)
