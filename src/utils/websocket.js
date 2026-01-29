@@ -11,40 +11,27 @@ import {
   connectionEstablished
 } from "../action/index"
 
-// TODO: Move these credentials to environment variables or fetch from server
-// Security Risk: These credentials are exposed in client code and can be abused
-// Recommendation: Use a server endpoint to generate temporary TURN credentials
 const servers = {
   iceServers: [
     {
+      urls: "stun:stun.cloudflare.com:3478",
+    },
+    {
+      urls: "stun:stunserver2025.stunprotocol.org:3478",
+    },
+    {
       urls: [
-        "stun:stun.stunprotocol.org",
-        "stun:stun.l.google.com:19302",
-        "stun:stun1.l.google.com:19302",
-      ],
-    },
-    {
-      urls: "turn:relay.metered.ca:80",
-      username: "6bab8bf16065c49f92a874ad",
-      credential: "FidJuZ2TMKrsY0BH",
-    },
-    {
-      urls: "turn:relay.metered.ca:443",
-      username: "6bab8bf16065c49f92a874ad",
-      credential: "FidJuZ2TMKrsY0BH",
-    },
-    {
-      urls: "turn:relay.metered.ca:443?transport=tcp",
-      username: "6bab8bf16065c49f92a874ad",
-      credential: "FidJuZ2TMKrsY0BH",
+        "turns:relay.metered.ca:443?transport=tcp",
+        "turn:relay.metered.ca:443", 
+        "turn:relay.metered.ca:80"
+      ]
     },
   ],
-  // Enable continuous gathering for better connectivity
-  iceCandidatePoolSize: 10,
+  iceCandidatePoolSize: 2,
 };
 
-const ENDPOINT = "https://faax.sandymoon.com.ng" //="https://obscure-waters-87185.herokuapp.com"; // "https://xendr.onrender.com" //="https://140.238.157.123:3001"//  "https://obscure-waters-87185s.herokuapp.com"//="http://localhost:3001/"  //
-const CONNECTION_TIMEOUT = 30000; // 30 seconds
+const ENDPOINT = "https://faax.sandymoon.com.ng" 
+const CONNECTION_TIMEOUT = 30000;
 
 const WebSocketContext = createContext(null)
 
