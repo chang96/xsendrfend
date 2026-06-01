@@ -16,7 +16,7 @@ const formatBytes = (bytes, decimals = 2) => {
 
 function ChartBody({messageFromServr, completion, sendMessage, userType, roomName, percentageIncrease, newMessageDispatch, queued}){
     const [transfers, setTransfers] = useState({});
-    const [viewMode, setViewMode] = useState("notes"); // "notes" (default) or "chat"
+    const [viewMode, setViewMode] = useState("chat"); // "chat" (default) or "notes"
     const [notes, setNotes] = useState([]); // Collaborative note stack array
     const [composerText, setComposerText] = useState("");
 
@@ -105,7 +105,10 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                                     if (n.files.some(f => f.fileId === fileMeta.fileId)) return n;
                                     return {
                                         ...n,
-                                        files: [...n.files, fileMeta]
+                                        files: [...n.files, {
+                                            ...fileMeta,
+                                            ownerType: msg.type
+                                        }]
                                     };
                                 }
                                 return n;
@@ -307,6 +310,14 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
     };
 
     const handleIncomingFileMeta = (msg) => {
+        let noteId = msg.noteId;
+        if (!noteId && msg.fileId && msg.fileId.startsWith("file--")) {
+            const parts = msg.fileId.split("--");
+            if (parts.length >= 2) {
+                noteId = parts[1];
+            }
+        }
+
         window.incomingFiles = window.incomingFiles || {};
         window.incomingFiles[msg.fileId] = {
             name: msg.name,
@@ -316,7 +327,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
             chunks: [],
             receivedBytes: 0,
             heartbeatTimer: null,
-            noteId: msg.noteId
+            noteId: noteId
         };
 
         setTransfers(prev => ({
@@ -333,10 +344,10 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
         resetReceiverHeartbeat(msg.fileId);
 
         // Bind file metadata locally inside note card files array
-        if (msg.noteId) {
+        if (noteId) {
             setNotes(prev => {
                 return prev.map(n => {
-                    if (n.id === msg.noteId) {
+                    if (n.id === noteId) {
                         if (n.files.some(f => f.fileId === msg.fileId)) return n;
                         return {
                             ...n,
@@ -345,7 +356,8 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                                 size: msg.size,
                                 type: msg.type,
                                 fileId: msg.fileId,
-                                noteId: msg.noteId
+                                noteId: noteId,
+                                ownerType: "owner"
                             }]
                         };
                     }
@@ -670,7 +682,6 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
             <div className="bg-[#1b1b1b] border-b border-[#252525] px-4 py-2.5 flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                     <span className="h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse"></span>
-                    <span className="text-white text-xs font-semibold tracking-wider uppercase">Relay</span>
                     <span className="text-gray-400 text-[10px] font-bold px-2 py-0.5 rounded bg-[#242424] select-all">
                         {roomName.name}
                     </span>
@@ -822,7 +833,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                                                     const transfer = transfers[fileMeta.fileId] || { progress: 0, status: "idle" };
                                                     const isActive = transfer.status === "sending" || transfer.status === "receiving" || transfer.status === "paused" || transfer.status === "retrying";
                                                     const isDone = transfer.status === "done";
-                                                    const isOwner = fileMeta.type === "owner";
+                                                    const isOwner = fileMeta.ownerType === "owner";
 
                                                     return (
                                                         <div key={fileMeta.fileId} className="w-full text-xs text-left bg-[#121214] border border-[#2b2b2d] rounded-xl p-2.5">

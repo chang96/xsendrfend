@@ -16,7 +16,7 @@ function Attachment({name, color, height, width, onChange, cN, sendMessage, msg,
 
        for(let i = 0; i < files.length; i++){
         const file = files.item(i)
-        const fileId = "file_" + Math.random().toString(36).substring(2, 9)
+        const fileId = "file--" + (noteId || "default") + "--" + Math.random().toString(36).substring(2, 9)
         window.fileMap[fileId] = file
         metadataList.push({
           name: file.name,
