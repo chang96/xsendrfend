@@ -250,8 +250,8 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
 
     return (
         <div
-            className="relative bg-[#121212] w-full max-w-md mx-auto flex flex-col justify-between"
-            style={{ height: "85vh", borderRight: "1px solid #1f1f1f", borderLeft: "1px solid #1f1f1f" }}
+            className="flex-1 flex flex-col justify-between min-h-0 w-full max-w-md mx-auto bg-[#121212]"
+            style={{ borderRight: "1px solid #1f1f1f", borderLeft: "1px solid #1f1f1f" }}
         >
             {/* Space Title/Header */}
             <div className="bg-[#1b1b1b] border-b border-[#252525] px-4 py-3 flex items-center justify-between">
@@ -266,7 +266,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
 
             {/* Chat/File log container */}
             <div
-                className="flex-1 overflow-y-auto px-4 py-3 space-y-3"
+                className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0"
                 style={{ scrollbarWidth: "thin" }}
             >
                 {messageFromServr.messages.map(function(message, i){
