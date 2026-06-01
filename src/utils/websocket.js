@@ -4,7 +4,9 @@ import openSocket from "socket.io-client";
 import {
   createSpaceAction,
   changRoomNameAction,
-  setUserType
+  setUserType,
+  connectionEstablished,
+  connecting
 } from "../action/index"
 
 const ENDPOINT = "https://faax.sandymoon.com.ng"
@@ -44,7 +46,23 @@ export default ({ children }) => {
   }
 
   if (!socket) {
+    dispatch(connecting());
     socket = openSocket(ENDPOINT, { transports: ["websocket"] })
+
+    socket.on("connect", () => {
+      console.log("Socket.io connected successfully!");
+      dispatch(connectionEstablished(true));
+    });
+
+    socket.on("disconnect", () => {
+      console.log("Socket.io disconnected!");
+      dispatch(connectionEstablished(false));
+    });
+
+    socket.on("connect_error", (error) => {
+      console.error("Socket.io connection error:", error);
+      dispatch(connectionEstablished(false));
+    });
 
     socket.on("newRoomis", (msg) => {
       console.log("New room created:", msg);

@@ -115,7 +115,7 @@ const connectionEstablishedReducer = function (state, action){
     switch(action.type){
         case CONNECTED:
             return {
-                connected: state.connected === true? false : state.connected === false? true : true
+                connected: action.connected
             }
         case CONNECTING: 
             return {

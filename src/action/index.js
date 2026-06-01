@@ -52,18 +52,11 @@ const userJoined = function(user){
     }
 }
 
-const connectionEstablished = function(payload){
-    if(!payload){
-        return {
-            type: CONNECTED
-        }
-    } else {
-        return {
-            type: CONNECTING,
-            payload: payload
-        }
+const connectionEstablished = function(connected){
+    return {
+        type: CONNECTED,
+        connected: connected
     }
-   
 }
 
 const connecting = function (){
