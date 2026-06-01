@@ -4,49 +4,56 @@ import { useContext } from "react";
 import { WebSocketContext } from "../../utils/websocket";
 import {createSpaceAction} from "../../action/index"
 import loader from "../../assets/loader.svg"
-// import {createConnection} from "../../utils/webrtc"
+
 function CreateSpace({joined, socket, join}){
   const {createRoom, createConnection} = useContext(WebSocketContext)
   const [loading, setLoading] = useState(false)
-    return <div 
-    style={{backgroundColor:"#001AFF"}}
-    className="w-72 h-32 rounded-md flex justify-center"
-    >
-        <div
-        style={{textAlign:"center", paddingTop:"15%"}}
-        >
-        {/* <div>xx</div> */}
-        {
-          loading?
-          <div className="flex flex-row">
-          <p className="text-white">Creating Faax Space</p> <img alt="" className="w-8 h-8" src={loader}/>
-        </div> :
-         <div className="flex flex-row">
-         <p className="text-white">Create Faax Space</p>
-       </div>
-        }
-       
-        
-        <div 
-        style={{}}
-        ><button style={{
-          border:"1px black",
-          backgroundColor:"#99A3FF",
-          width:"42px",
-          height:"42px",
-          borderRadius:"50%",
-          color:"blue",
-          fontSize:"18px",
-        }}
-        // onClick={()=> join()}
-        onClick={async ()=> {
-            setLoading(true)
-            createRoom()
-            await createConnection()
-        }}
-        >+</button></div>
+
+  return (
+    <div className="w-80 bg-[#1E1E1E] rounded-2xl p-6 border border-[#2b2b2b] hover:border-[#001AFF]/40 shadow-xl transition-all duration-300 flex flex-col justify-between space-y-4">
+      <div className="flex items-center space-x-3">
+        <div className="p-3 bg-[#001AFF]/10 text-[#001AFF] rounded-xl">
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+          </svg>
         </div>
+        <div className="text-left">
+          <h3 className="text-white text-sm font-semibold tracking-wide">
+            {loading ? "Creating Space..." : "New Transfer Space"}
+          </h3>
+          <p className="text-[#777777] text-[11px] leading-tight mt-0.5">
+            Set up a secure stateless room to share large files and real-time chat.
+          </p>
+        </div>
+      </div>
+
+      <button
+        onClick={async () => {
+          setLoading(true)
+          createRoom()
+          if (createConnection) await createConnection()
+        }}
+        disabled={loading}
+        className={`w-full py-2.5 rounded-xl font-semibold text-xs tracking-wider uppercase shadow-md transition-all duration-150 flex items-center justify-center space-x-2 ${
+          loading 
+            ? "bg-[#252525] text-gray-500 cursor-not-allowed" 
+            : "bg-[#001AFF] text-white hover:bg-blue-700 active:scale-[0.98] cursor-pointer"
+        }`}
+      >
+        {loading ? (
+          <>
+            <img alt="loading" className="w-4 h-4 animate-spin filter invert" src={loader} />
+            <span>Generating...</span>
+          </>
+        ) : (
+          <>
+            <span>Create Space</span>
+            <span className="text-sm font-light">+</span>
+          </>
+        )}
+      </button>
     </div>
+  )
 }
 
 const mapStateToProps = state=> {
