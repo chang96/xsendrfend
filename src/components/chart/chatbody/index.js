@@ -17,10 +17,8 @@ const formatBytes = (bytes, decimals = 2) => {
 function ChartBody({messageFromServr, completion, sendMessage, userType, roomName, percentageIncrease, newMessageDispatch, queued}){
     const [transfers, setTransfers] = useState({});
     const [viewMode, setViewMode] = useState("notes"); // "notes" (default) or "chat"
-    const [autoSendEnabled, setAutoSendEnabled] = useState(true);
+    const [notes, setNotes] = useState([]); // Collaborative note stack array
     const [composerText, setComposerText] = useState("");
-    const [syncStatus, setSyncStatus] = useState("standby"); // "standby", "typing", "synced"
-    const autoSendTimerRef = useRef(null);
 
     const { 
         socket, 
@@ -96,6 +94,30 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
     };
 
     useEffect(() => {
+        // Automatically bind files with noteId from Redux message log into our collaborative notes stack
+        messageFromServr.messages.forEach(msg => {
+            if (msg.niFile && Array.isArray(msg.message)) {
+                msg.message.forEach(fileMeta => {
+                    if (fileMeta.noteId) {
+                        setNotes(prev => {
+                            return prev.map(n => {
+                                if (n.id === fileMeta.noteId) {
+                                    if (n.files.some(f => f.fileId === fileMeta.fileId)) return n;
+                                    return {
+                                        ...n,
+                                        files: [...n.files, fileMeta]
+                                    };
+                                }
+                                return n;
+                            });
+                        });
+                    }
+                });
+            }
+        });
+    }, [messageFromServr.messages]);
+
+    useEffect(() => {
         // Register Socket/WebRTC incoming chunk message handler
         setDataChannelMessageHandler((event) => {
             if (event.isSocketAck) {
@@ -108,7 +130,13 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
             } else if (typeof event.data === "string") {
                 try {
                     const msg = JSON.parse(event.data);
-                    if (msg.xtype === "file-meta") {
+                    if (msg.xtype === "note-create") {
+                        handleIncomingNoteCreate(msg);
+                    } else if (msg.xtype === "note-sync-text") {
+                        handleIncomingNoteSyncText(msg);
+                    } else if (msg.xtype === "note-delete") {
+                        handleIncomingNoteDelete(msg);
+                    } else if (msg.xtype === "file-meta") {
                         handleIncomingFileMeta(msg);
                     } else if (msg.xtype === "file-done") {
                         handleIncomingFileDone(msg);
@@ -127,7 +155,13 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
 
         // Register socket.io message handler as high-reliability fallback
         socket.on('messageFromServer', data => {
-            if (data.xtype === "file-meta") {
+            if (data.xtype === "note-create") {
+                handleIncomingNoteCreate(data);
+            } else if (data.xtype === "note-sync-text") {
+                handleIncomingNoteSyncText(data);
+            } else if (data.xtype === "note-delete") {
+                handleIncomingNoteDelete(data);
+            } else if (data.xtype === "file-meta") {
                 handleIncomingFileMeta(data);
             } else if (data.xtype === "file-done") {
                 handleIncomingFileDone(data);
@@ -229,6 +263,14 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
             queued.queued.shift();
         }
 
+        // Initialize first collaborative note automatically if notes stack is empty
+        setNotes(prev => {
+            if (prev.length === 0) {
+                return [{ id: "default", text: "", files: [], isEditing: false }];
+            }
+            return prev;
+        });
+
         return () => {
             setDataChannelMessageHandler(null);
             socket.off('messageFromServer');
@@ -237,6 +279,32 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
             window.onFileChunkAckReceived = null;
         }
     }, [userType, transfers, queued]);
+
+    const handleIncomingNoteCreate = (data) => {
+        const noteId = data.noteId;
+        setNotes(prev => {
+            if (prev.some(n => n.id === noteId)) return prev;
+            return [...prev, { id: noteId, text: "", files: [], isEditing: false }];
+        });
+    };
+
+    const handleIncomingNoteSyncText = (data) => {
+        const noteId = data.noteId;
+        const text = data.text;
+        setNotes(prev => {
+            return prev.map(n => {
+                if (n.id === noteId) {
+                    return { ...n, text: text };
+                }
+                return n;
+            });
+        });
+    };
+
+    const handleIncomingNoteDelete = (data) => {
+        const noteId = data.noteId;
+        setNotes(prev => prev.filter(n => n.id !== noteId));
+    };
 
     const handleIncomingFileMeta = (msg) => {
         window.incomingFiles = window.incomingFiles || {};
@@ -247,7 +315,8 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
             totalChunks: msg.totalChunks,
             chunks: [],
             receivedBytes: 0,
-            heartbeatTimer: null
+            heartbeatTimer: null,
+            noteId: msg.noteId
         };
 
         setTransfers(prev => ({
@@ -263,17 +332,27 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
 
         resetReceiverHeartbeat(msg.fileId);
 
-        // Dispatch lightweight notification message into chat history
-        newMessageDispatch({
-            type: "owner",
-            niFile: true,
-            message: [{
-                name: msg.name,
-                size: msg.size,
-                type: msg.type,
-                fileId: msg.fileId
-            }]
-        });
+        // Bind file metadata locally inside note card files array
+        if (msg.noteId) {
+            setNotes(prev => {
+                return prev.map(n => {
+                    if (n.id === msg.noteId) {
+                        if (n.files.some(f => f.fileId === msg.fileId)) return n;
+                        return {
+                            ...n,
+                            files: [...n.files, {
+                                name: msg.name,
+                                size: msg.size,
+                                type: msg.type,
+                                fileId: msg.fileId,
+                                noteId: msg.noteId
+                            }]
+                        };
+                    }
+                    return n;
+                });
+            });
+        }
     };
 
     const storeIncomingChunk = (fileId, index, binaryData) => {
@@ -382,7 +461,8 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
             name: file.name,
             size: file.size,
             type: file.type,
-            totalChunks: totalChunks
+            totalChunks: totalChunks,
+            noteId: message.noteId
         });
 
         const sendNextChunks = () => {
@@ -491,57 +571,56 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
         });
     };
 
-    // Auto-Sync Debounce logic for active text composer (typing pause triggers sync!)
-    const onComposerChange = (e) => {
-        const text = e.target.value;
-        setComposerText(text);
+    // Collaborative Note Creators & Synchronizers
+    const handleCreateNote = () => {
+        const newNoteId = "note_" + Math.random().toString(36).substring(2, 9);
+        
+        // Add note card locally
+        setNotes(prev => [
+            ...prev,
+            { id: newNoteId, text: "", files: [], isEditing: false }
+        ]);
 
-        if (text.trim() === "") {
-            setSyncStatus("standby");
-            if (autoSendTimerRef.current) {
-                clearTimeout(autoSendTimerRef.current);
-            }
-            return;
-        }
-
-        setSyncStatus("typing");
-
-        if (autoSendEnabled) {
-            if (autoSendTimerRef.current) {
-                clearTimeout(autoSendTimerRef.current);
-            }
-            autoSendTimerRef.current = setTimeout(() => {
-                handleSendNote(text);
-            }, 1200); // 1.2s auto-sync timer
-        }
-    };
-
-    const handleSendNote = (textToSend) => {
-        const finalMsg = textToSend || composerText;
-        if (!finalMsg.trim()) return;
-
-        // Dispatch locally in Redux
-        newMessageDispatch({
-            type: "guest",
-            message: finalMsg
-        });
-
-        // Emit to room over Socket.io relay
+        // Emit creation event to the room
         socket.emit("messageFromClient", {
             roomName: roomName.name,
-            type: userType.userType || "guest",
-            message: finalMsg,
-            xtype: "text"
+            xtype: "note-create",
+            noteId: newNoteId
+        });
+    };
+
+    const handleNoteTextChange = (noteId, e) => {
+        const newText = e.target.value;
+        
+        // Update locally
+        setNotes(prev => {
+            return prev.map(n => {
+                if (n.id === noteId) {
+                    return { ...n, text: newText };
+                }
+                return n;
+            });
         });
 
-        // Reset state
-        setComposerText("");
-        setSyncStatus("synced");
+        // Emit text updates character-by-character in real-time
+        socket.emit("messageFromClient", {
+            roomName: roomName.name,
+            xtype: "note-sync-text",
+            noteId: noteId,
+            text: newText
+        });
+    };
 
-        // Reset sync status indicator back to standby after 1.5s
-        setTimeout(() => {
-            setSyncStatus(prev => prev === "synced" ? "standby" : prev);
-        }, 1500);
+    const handleDeleteNote = (noteId) => {
+        // Remove locally
+        setNotes(prev => prev.filter(n => n.id !== noteId));
+
+        // Emit deletion to room
+        socket.emit("messageFromClient", {
+            roomName: roomName.name,
+            xtype: "note-delete",
+            noteId: noteId
+        });
     };
 
     // Helper functions for content card auto-detection
@@ -630,235 +709,226 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
 
             {/* Content pane based on viewMode */}
             {viewMode === "notes" ? (
-                /* NOTES MODE: Vertical Stack Pile (Newest at top) */
+                /* NOTES MODE: Collaborative Notes stack pile (Newest at top) */
                 <div
                     className="flex-1 overflow-y-auto px-4 py-4 space-y-4 min-h-0"
                     style={{ scrollbarWidth: "thin" }}
                 >
-                    {messageFromServr.messages.slice().reverse().map(function(message, i) {
-                        const isOwner = message.type === "owner";
-                        // Skip empty text indicators
-                        if (!message.message && !message.niFile) return null;
-
-                        if (message.niFile) {
-                            return (message.message || []).map((fileMeta, j) => {
-                                const transfer = transfers[fileMeta.fileId] || { progress: 0, status: "idle" };
-                                const isActive = transfer.status === "sending" || transfer.status === "receiving" || transfer.status === "paused" || transfer.status === "retrying";
-                                const isDone = transfer.status === "done";
-
-                                return (
-                                    <div key={`${i}-${j}`} className="w-full">
-                                        <div className={`bg-[#1E1E1E] rounded-xl p-3.5 border shadow-lg transition-all duration-200 text-left ${
-                                            transfer.status === "paused" 
-                                                ? "border-red-500/40 bg-red-950/5 shadow-red-950/20" 
-                                                : transfer.status === "retrying"
-                                                ? "border-yellow-500/40 bg-yellow-950/5 shadow-yellow-950/20"
-                                                : "border-[#2b2b2b] hover:border-[#001AFF]/30"
-                                        }`}>
-                                            <div className="flex justify-between items-center mb-2">
-                                                <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Shared File</span>
-                                                <span className={`flex items-center space-x-1 text-[9px] font-semibold ${
-                                                    transfer.status === "paused" ? "text-red-400" : "text-green-400"
-                                                }`}>
-                                                    <span className={`h-1.5 w-1.5 rounded-full ${
-                                                        transfer.status === "paused" ? "bg-red-500" : "bg-green-400 animate-pulse"
-                                                    }`}></span>
-                                                    <span>{transfer.status === "paused" ? "Paused" : "Live Sync"}</span>
-                                                </span>
-                                            </div>
-
-                                            <div className="flex items-center space-x-3 truncate">
-                                                <div className="p-2.5 bg-[#001AFF] bg-opacity-10 text-[#001AFF] rounded-lg flex-shrink-0">
-                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                                                    </svg>
-                                                </div>
-                                                <div className="truncate flex-1 text-left">
-                                                    <h4 className="text-white text-xs font-semibold truncate leading-tight" title={fileMeta.name}>{fileMeta.name}</h4>
-                                                    <span className="text-[#777777] text-[10px]">{formatBytes(fileMeta.size)}</span>
-                                                </div>
-                                            </div>
-
-                                            {/* Dynamic Progress indicator */}
-                                            {(isActive || isDone) && (
-                                                <div className="mt-3">
-                                                    <div className="w-full bg-[#121212] rounded-full h-1 overflow-hidden">
-                                                        <div 
-                                                            className={`h-full rounded-full transition-all duration-300 ease-out ${
-                                                                transfer.status === "paused" 
-                                                                    ? "bg-red-500" 
-                                                                    : transfer.status === "retrying"
-                                                                    ? "bg-yellow-500 animate-pulse"
-                                                                    : "bg-[#001AFF]"
-                                                            }`}
-                                                            style={{ width: `${transfer.progress}%` }}
-                                                        />
-                                                    </div>
-                                                    <div className="flex justify-between items-center mt-1 text-[9px] text-[#777777]">
-                                                        <span>
-                                                            {transfer.status === "sending" 
-                                                                ? "Streaming to Room..." 
-                                                                : transfer.status === "receiving" 
-                                                                ? "Receiving Stream..." 
-                                                                : transfer.status === "paused"
-                                                                ? "Transfer Paused"
-                                                                : transfer.status === "retrying"
-                                                                ? "Resuming..."
-                                                                : "Ready in Room"}
-                                                        </span>
-                                                        <span className={transfer.status === "paused" ? "text-red-500 font-semibold" : ""}>
-                                                            {transfer.progress}%
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* Action controls */}
-                                            <div className="mt-2.5 flex justify-end space-x-2">
-                                                {/* Send button for the uploading user */}
-                                                {!isOwner && !isActive && !isDone && (
-                                                    <button
-                                                        className={`text-[10px] font-semibold px-2.5 py-1 rounded shadow transition-all duration-150 ${
-                                                            isChannelOpen 
-                                                                ? "bg-[#001AFF] text-white hover:bg-blue-700 cursor-pointer" 
-                                                                : "bg-[#252525] text-gray-500 cursor-not-allowed"
-                                                        }`}
-                                                        onClick={() => handleClick(fileMeta)}
-                                                        disabled={!isChannelOpen}
-                                                    >
-                                                        {isChannelOpen ? "Send to Room ☁" : "Connecting..."}
-                                                    </button>
-                                                )}
-
-                                                {/* Retry/Paused status controls */}
-                                                {!isOwner && transfer.status === "paused" && (
-                                                    <button
-                                                        className="text-[10px] font-semibold px-2.5 py-1 rounded border border-red-500/30 text-red-400 bg-red-950/20 hover:bg-red-900/30 shadow transition-all duration-150 cursor-pointer flex items-center space-x-1"
-                                                        onClick={() => handleRetry(fileMeta)}
-                                                    >
-                                                        <span>Retry 🔄</span>
-                                                    </button>
-                                                )}
-
-                                                {isOwner && transfer.status === "paused" && (
-                                                    <div className="text-[9px] font-medium px-2 py-0.5 rounded border border-red-500/20 text-red-400 bg-red-950/10 flex items-center space-x-1 select-none">
-                                                        <span className="h-1.5 w-1.5 rounded-full bg-red-400 animate-ping"></span>
-                                                        <span>Paused</span>
-                                                    </div>
-                                                )}
-
-                                                {/* Download/Save button for the receiving user */}
-                                                {isOwner && isDone && (
-                                                    <a
-                                                        href={transfer.objectUrl || "#"}
-                                                        download={fileMeta.name}
-                                                        className="text-[10px] font-semibold px-2.5 py-1 rounded text-white bg-green-600 hover:bg-green-700 shadow transition-all duration-150 flex items-center space-x-1"
-                                                    >
-                                                        <span>Save File ⬇</span>
-                                                    </a>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            });
-                        }
-
-                        // Render Text Notes (URL, Code, or Text)
-                        const msgText = typeof message.message === "string" ? message.message : "";
-                        const urlMatch = isUrl(msgText);
-                        const codeMatch = isCode(msgText);
-
-                        if (urlMatch) {
-                            return (
-                                <div key={i} className="w-full">
-                                    <div className="bg-[#1E1E1E] rounded-xl p-3.5 border border-[#2b2b2b] hover:border-[#001AFF]/30 shadow-lg text-left transition-all duration-200">
-                                        <div className="flex justify-between items-center mb-1.5">
-                                            <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Web Link</span>
-                                            <span className="flex items-center space-x-1 text-[9px] text-green-400 font-semibold">
-                                                <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse"></span>
-                                                <span>Live Sync</span>
-                                            </span>
-                                        </div>
-                                        <div className="text-xs text-left truncate leading-normal">
-                                            <a 
-                                                href={msgText} 
-                                                target="_blank" 
-                                                rel="noopener noreferrer" 
-                                                className="text-[#001AFF] hover:underline break-all font-semibold"
-                                            >
-                                                {msgText}
-                                            </a>
-                                        </div>
-                                        <div className="mt-2.5 flex justify-end">
-                                            <button 
-                                                onClick={(e) => copyTextToClipboard(msgText, e.currentTarget)}
-                                                className="text-[9px] font-bold px-2.5 py-1 rounded border border-[#2b2b2b] text-gray-400 bg-[#171719] hover:bg-[#252527] transition-all flex items-center space-x-1 cursor-pointer"
-                                            >
-                                                <span>Copy Link</span>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        }
-
-                        if (codeMatch) {
-                            const cleanCode = msgText.replace(/```/g, "");
-                            return (
-                                <div key={i} className="w-full">
-                                    <div className="bg-[#1E1E1E] rounded-xl p-3.5 border border-[#2b2b2b] hover:border-[#001AFF]/30 shadow-lg text-left transition-all duration-200">
-                                        <div className="flex justify-between items-center mb-1.5">
-                                            <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Code Snippet</span>
-                                            <span className="flex items-center space-x-1 text-[9px] text-green-400 font-semibold">
-                                                <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse"></span>
-                                                <span>Live Sync</span>
-                                            </span>
-                                        </div>
-                                        <pre className="text-[10px] font-mono text-left bg-[#171719] p-2.5 rounded-lg text-gray-300 overflow-x-auto select-all max-h-40 border border-[#232325]">
-                                            <code>{cleanCode}</code>
-                                        </pre>
-                                        <div className="mt-2.5 flex justify-end">
-                                            <button 
-                                                onClick={(e) => copyTextToClipboard(cleanCode, e.currentTarget)}
-                                                className="text-[9px] font-bold px-2.5 py-1 rounded border border-[#2b2b2b] text-gray-400 bg-[#171719] hover:bg-[#252527] transition-all flex items-center space-x-1 cursor-pointer"
-                                            >
-                                                <span>Copy Snippet</span>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        }
-
-                        return (
-                            <div key={i} className="w-full">
-                                <div className="bg-[#1E1E1E] rounded-xl p-3.5 border border-[#2b2b2b] hover:border-[#001AFF]/30 shadow-lg text-left transition-all duration-200">
-                                    <div className="flex justify-between items-center mb-1.5">
-                                        <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Pasted Note</span>
-                                        <span className="flex items-center space-x-1 text-[9px] text-green-400 font-semibold">
-                                            <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse"></span>
-                                            <span>Live Sync</span>
-                                        </span>
-                                    </div>
-                                    <div className="text-xs text-left leading-relaxed text-gray-200 whitespace-pre-wrap break-words">
-                                        {msgText}
-                                    </div>
-                                    <div className="mt-2.5 flex justify-end">
-                                        <button 
-                                            onClick={(e) => copyTextToClipboard(msgText, e.currentTarget)}
-                                            className="text-[9px] font-bold px-2.5 py-1 rounded border border-[#2b2b2b] text-gray-400 bg-[#171719] hover:bg-[#252527] transition-all flex items-center space-x-1 cursor-pointer"
-                                        >
-                                            <span>Copy Note</span>
-                                        </button>
-                                    </div>
-                                </div>
+                    {notes.length === 0 ? (
+                        /* Empty state placeholder */
+                        <div className="h-full flex flex-col items-center justify-center text-center px-6">
+                            <div className="p-4 bg-[#1E1E1E] rounded-full text-gray-500 mb-3">
+                                <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
                             </div>
-                        );
-                    })}
+                            <h3 className="text-gray-400 text-xs font-semibold tracking-wider uppercase">No Notes Yet</h3>
+                            <p className="text-gray-600 text-[10px] mt-1 max-w-[240px] leading-relaxed">
+                                Click the "Create Note" button below to add a collaborative real-time mirrored card!
+                            </p>
+                        </div>
+                    ) : (
+                        notes.slice().reverse().map(function(note, index) {
+                            const noteNum = notes.length - index;
+                            const urlMatch = isUrl(note.text);
+                            const codeMatch = isCode(note.text);
+
+                            return (
+                                <div key={note.id} className="w-full">
+                                    <div className="bg-[#1E1E1E] rounded-2xl p-4 border border-[#2b2b2b] hover:border-[#001AFF]/30 shadow-lg text-left transition-all duration-200 flex flex-col space-y-3">
+                                        
+                                        {/* Card Header */}
+                                        <div className="flex justify-between items-center border-b border-[#252527] pb-2">
+                                            <div className="flex items-center space-x-2">
+                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Note #{noteNum}</span>
+                                            </div>
+                                            <div className="flex items-center space-x-2.5">
+                                                {/* File Attachment Button inside specific note */}
+                                                <div className="text-gray-400 hover:text-white transition-colors duration-150">
+                                                    <Attachment noteId={note.id} />
+                                                </div>
+                                                
+                                                {/* Delete Button */}
+                                                <button
+                                                    onClick={() => handleDeleteNote(note.id)}
+                                                    className="text-gray-500 hover:text-red-500 transition-colors duration-150"
+                                                    title="Delete Note"
+                                                >
+                                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Card Textarea Editor (Time-free continuous typing) */}
+                                        <div className="w-full">
+                                            <textarea
+                                                value={note.text}
+                                                onChange={(e) => handleNoteTextChange(note.id, e)}
+                                                placeholder="Pasted links, snippets or text... Updates instantly on all devices!"
+                                                className="w-full bg-transparent border-none outline-none text-white text-xs placeholder-[#444446] focus:ring-0 focus:outline-none resize-y py-0.5 leading-relaxed min-h-[60px]"
+                                            />
+                                        </div>
+
+                                        {/* Auto-detected rich preview tools */}
+                                        {urlMatch && (
+                                            <div className="p-2 bg-[#121214] border border-[#2b2b2d] rounded-xl flex items-center justify-between">
+                                                <a 
+                                                    href={note.text.trim()} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer" 
+                                                    className="text-[#001AFF] hover:underline text-[10px] font-semibold break-all truncate flex-1 text-left mr-2"
+                                                >
+                                                    🌐 Open Live Link
+                                                </a>
+                                                <button 
+                                                    onClick={(e) => copyTextToClipboard(note.text.trim(), e.currentTarget)}
+                                                    className="text-[8px] font-bold px-2 py-0.5 rounded border border-[#2b2b2b] text-gray-400 bg-[#171719] hover:bg-[#252527] transition-all flex items-center space-x-1 cursor-pointer flex-shrink-0"
+                                                >
+                                                    <span>Copy Link</span>
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {codeMatch && (
+                                            <div className="flex justify-between items-center bg-[#121214] border border-[#2b2b2d] p-2 rounded-xl">
+                                                <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider font-mono">Monospace Snippet</span>
+                                                <button 
+                                                    onClick={(e) => copyTextToClipboard(note.text.replace(/```/g, ""), e.currentTarget)}
+                                                    className="text-[8px] font-bold px-2 py-0.5 rounded border border-[#2b2b2b] text-gray-400 bg-[#171719] hover:bg-[#252527] transition-all flex items-center space-x-1 cursor-pointer"
+                                                >
+                                                    <span>Copy Snippet</span>
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {/* 1-Click Copy for standard notes */}
+                                        {!urlMatch && !codeMatch && note.text.trim().length > 0 && (
+                                            <div className="flex justify-end pt-1">
+                                                <button 
+                                                    onClick={(e) => copyTextToClipboard(note.text, e.currentTarget)}
+                                                    className="text-[8px] font-bold px-2 py-0.5 rounded border border-[#2b2b2b] text-gray-400 bg-[#171719] hover:bg-[#252527] transition-all flex items-center space-x-1 cursor-pointer"
+                                                >
+                                                    <span>Copy Note</span>
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {/* Card-Specific File progress render area */}
+                                        {note.files && note.files.length > 0 && (
+                                            <div className="space-y-2 border-t border-[#252527] pt-3">
+                                                {note.files.map((fileMeta) => {
+                                                    const transfer = transfers[fileMeta.fileId] || { progress: 0, status: "idle" };
+                                                    const isActive = transfer.status === "sending" || transfer.status === "receiving" || transfer.status === "paused" || transfer.status === "retrying";
+                                                    const isDone = transfer.status === "done";
+                                                    const isOwner = fileMeta.type === "owner";
+
+                                                    return (
+                                                        <div key={fileMeta.fileId} className="w-full text-xs text-left bg-[#121214] border border-[#2b2b2d] rounded-xl p-2.5">
+                                                            <div className="flex items-center space-x-2 truncate">
+                                                                <div className="p-2 bg-[#001AFF] bg-opacity-10 text-[#001AFF] rounded-lg flex-shrink-0">
+                                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                                                    </svg>
+                                                                </div>
+                                                                <div className="truncate flex-1 text-left">
+                                                                    <h4 className="text-white text-[11px] font-semibold truncate leading-tight" title={fileMeta.name}>{fileMeta.name}</h4>
+                                                                    <span className="text-[#777777] text-[9px]">{formatBytes(fileMeta.size)}</span>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Dynamic Progress indicator */}
+                                                            {(isActive || isDone) && (
+                                                                <div className="mt-2.5">
+                                                                    <div className="w-full bg-[#121212] rounded-full h-1 overflow-hidden">
+                                                                        <div 
+                                                                            className={`h-full rounded-full transition-all duration-300 ease-out ${
+                                                                                transfer.status === "paused" 
+                                                                                    ? "bg-red-500" 
+                                                                                    : transfer.status === "retrying"
+                                                                                    ? "bg-yellow-500 animate-pulse"
+                                                                                    : "bg-[#001AFF]"
+                                                                            }`}
+                                                                            style={{ width: `${transfer.progress}%` }}
+                                                                        />
+                                                                    </div>
+                                                                    <div className="flex justify-between items-center mt-1 text-[8px] text-[#777777]">
+                                                                        <span>
+                                                                            {transfer.status === "sending" 
+                                                                                ? "Streaming..." 
+                                                                                : transfer.status === "receiving" 
+                                                                                ? "Receiving..." 
+                                                                                : transfer.status === "paused"
+                                                                                ? "Paused"
+                                                                                : transfer.status === "retrying"
+                                                                                ? "Resuming..."
+                                                                                : "Ready"}
+                                                                        </span>
+                                                                        <span>{transfer.progress}%</span>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+
+                                                            {/* Action controls */}
+                                                            <div className="mt-2 flex justify-end space-x-1.5">
+                                                                {/* Send button for the uploading user */}
+                                                                {!isOwner && !isActive && !isDone && (
+                                                                    <button
+                                                                        className={`text-[9px] font-semibold px-2 py-0.5 rounded shadow transition-all duration-150 ${
+                                                                            isChannelOpen 
+                                                                                ? "bg-[#001AFF] text-white hover:bg-blue-700 cursor-pointer" 
+                                                                                : "bg-[#252525] text-gray-500 cursor-not-allowed"
+                                                                        }`}
+                                                                        onClick={() => handleClick(fileMeta)}
+                                                                        disabled={!isChannelOpen}
+                                                                    >
+                                                                        {isChannelOpen ? "Send ☁" : "Connecting..."}
+                                                                    </button>
+                                                                )}
+
+                                                                {/* Retry/Paused status controls */}
+                                                                {!isOwner && transfer.status === "paused" && (
+                                                                    <button
+                                                                        className="text-[9px] font-semibold px-2 py-0.5 rounded border border-red-500/30 text-red-400 bg-red-950/20 hover:bg-red-900/30 shadow transition-all duration-150 cursor-pointer flex items-center space-x-1"
+                                                                        onClick={() => handleRetry(fileMeta)}
+                                                                    >
+                                                                        <span>Retry 🔄</span>
+                                                                    </button>
+                                                                )}
+
+                                                                {isOwner && transfer.status === "paused" && (
+                                                                    <div className="text-[8px] font-medium px-2 py-0.5 rounded border border-red-500/20 text-red-400 bg-red-950/10 flex items-center space-x-1 select-none">
+                                                                        <span className="h-1 w-1 rounded-full bg-red-400 animate-ping"></span>
+                                                                        <span>Paused</span>
+                                                                    </div>
+                                                                )}
+
+                                                                {/* Download/Save button for the receiving user */}
+                                                                {isOwner && isDone && (
+                                                                    <a
+                                                                        href={transfer.objectUrl || "#"}
+                                                                        download={fileMeta.name}
+                                                                        className="text-[9px] font-semibold px-2 py-0.5 rounded text-white bg-green-600 hover:bg-green-700 shadow transition-all duration-150 flex items-center space-x-1"
+                                                                    >
+                                                                        <span>Save ⬇</span>
+                                                                    </a>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+
+                                    </div>
+                                </div>
+                            );
+                        })
+                    )}
                 </div>
             ) : (
-                /* CHAT MODE: Standard Chat Bubbles log (Scroll-free) */
+                /* CHAT MODE: Standard Chat Bubbles log (Fallback Room Chat) */
                 <div
                     className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0"
                     style={{ scrollbarWidth: "thin" }}
@@ -866,7 +936,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                     {messageFromServr.messages.map(function(message, i){
                         const isOwner = message.type === "owner";
                         
-                        // Skip empty text indicators
+                        // Skip empty text logs
                         if (!message.message && !message.niFile) return null;
 
                         if (message.niFile) {
@@ -902,97 +972,76 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                 </div>
             )}
 
-            {/* Integrated Minimalist Composer footer */}
-            <div className="bg-[#121212] border-t border-[#1f1f1f] px-3 py-3">
-                <div className="flex items-center space-x-2 w-full bg-[#1a1a1a] border border-[#2b2b2b] rounded-full px-3 py-1.5 focus-within:border-[#001AFF] transition-all duration-150 shadow-inner">
-                    {/* Attachment Button */}
-                    <div className="flex-shrink-0 flex items-center justify-center text-gray-400 hover:text-white transition-colors duration-150">
-                        <Attachment msg={composerText} />
-                    </div>
+            {/* Integrated Collaborative notes footer */}
+            {viewMode === "notes" ? (
+                /* NOTES COMPOSER: Pure minimalist "Create Note" trigger */
+                <div className="bg-[#121212] border-t border-[#1f1f1f] px-4 py-3.5 flex justify-center flex-shrink-0">
+                    <button
+                        onClick={handleCreateNote}
+                        className="w-full max-w-xs py-2.5 rounded-xl bg-[#001AFF] hover:bg-blue-700 text-white font-semibold text-xs tracking-wider uppercase shadow-md transition-all duration-150 active:scale-95 flex items-center justify-center space-x-2 cursor-pointer"
+                    >
+                        <span className="text-sm font-light">＋</span>
+                        <span>Create Note</span>
+                    </button>
+                </div>
+            ) : (
+                /* CHAT COMPOSER: Standard input bar */
+                <div className="bg-[#121212] border-t border-[#1f1f1f] px-3 py-3 flex-shrink-0">
+                    <div className="flex items-center space-x-2 w-full bg-[#1a1a1a] border border-[#2b2b2b] rounded-full px-3 py-1.5 focus-within:border-[#001AFF] transition-all duration-150 shadow-inner">
+                        {/* Dummy attachment trigger for standard room chat */}
+                        <div className="flex-shrink-0 flex items-center justify-center text-gray-400 hover:text-white transition-colors duration-150">
+                            <Attachment />
+                        </div>
 
-                    {/* Input Composer */}
-                    <input 
-                        type="text" 
-                        value={composerText}
-                        onChange={onComposerChange}
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter" && !autoSendEnabled) {
-                                handleSendNote();
-                            }
-                        }}
-                        placeholder={autoSendEnabled ? "Auto-syncs 1.2s after you pause..." : "Type text and hit enter to send..."}
-                        className="flex-1 bg-transparent border-none outline-none text-white text-xs placeholder-[#555555] focus:ring-0 focus:outline-none py-1 px-1"
-                        autoComplete="off"
-                    />
-
-                    {/* Auto/Manual Mode controller and Manual Send button */}
-                    <div className="flex items-center space-x-1.5 flex-shrink-0">
-                        {/* Tiny elegant Auto / Manual switch */}
-                        <button
-                            onClick={() => {
-                                setAutoSendEnabled(!autoSendEnabled);
-                                // Clear active timers
-                                if (autoSendTimerRef.current) {
-                                    clearTimeout(autoSendTimerRef.current);
+                        <input 
+                            type="text" 
+                            value={composerText}
+                            onChange={(e) => setComposerText(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                    // Send standard chat message
+                                    if (!composerText.trim()) return;
+                                    newMessageDispatch({ type: "guest", message: composerText });
+                                    socket.emit("messageFromClient", {
+                                        roomName: roomName.name,
+                                        type: userType.userType || "guest",
+                                        message: composerText,
+                                        xtype: "text"
+                                    });
+                                    setComposerText("");
                                 }
-                                setSyncStatus("standby");
                             }}
-                            className={`text-[8px] font-extrabold px-1.5 py-0.5 rounded transition-all duration-150 uppercase tracking-widest ${
-                                autoSendEnabled
-                                    ? "text-[#00E5FF] bg-[#00E5FF]/10 border border-[#00E5FF]/20"
-                                    : "text-gray-500 bg-[#252525] border border-transparent hover:text-white"
-                            }`}
-                            title={autoSendEnabled ? "Auto-Sync Enabled (Timer active)" : "Manual Send Mode"}
-                        >
-                            {autoSendEnabled ? "⚡ Auto" : "👤 Man"}
-                        </button>
+                            placeholder="Type room chat message..."
+                            className="flex-1 bg-transparent border-none outline-none text-white text-xs placeholder-[#555555] focus:ring-0 focus:outline-none py-1 px-1"
+                            autoComplete="off"
+                        />
 
-                        {/* Composer sync indicator (Auto Mode) or Send button (Manual Mode) */}
-                        {autoSendEnabled ? (
-                            <div 
-                                className={`text-[8px] font-bold px-2 py-1 rounded-full flex items-center justify-center transition-all duration-200 select-none ${
-                                    syncStatus === "typing"
-                                        ? "text-yellow-500 bg-yellow-950/20"
-                                        : syncStatus === "synced"
-                                        ? "text-green-500 bg-green-950/20"
-                                        : "text-gray-600"
-                                }`}
-                            >
-                                <span className={`h-1 w-1 rounded-full mr-1 ${
-                                    syncStatus === "typing"
-                                        ? "bg-yellow-500 animate-pulse"
-                                        : syncStatus === "synced"
-                                        ? "bg-green-500"
-                                        : "bg-gray-600"
-                                }`}></span>
-                                <span className="uppercase text-[7px] tracking-wider">
-                                    {syncStatus === "typing" ? "Typing" : syncStatus === "synced" ? "Synced" : "Ready"}
-                                </span>
-                            </div>
-                        ) : (
-                            <button 
-                                onClick={() => handleSendNote()}
-                                disabled={!composerText.trim()}
-                                className={`h-6 w-6 rounded-full flex items-center justify-center text-white shadow-md active:scale-95 focus:outline-none transition-all duration-150 ${
-                                    composerText.trim() 
-                                        ? "bg-[#001AFF] hover:bg-blue-700 cursor-pointer" 
-                                        : "bg-[#252525] text-gray-600 cursor-not-allowed opacity-50"
-                                }`}
-                            >
-                                <svg 
-                                    className="w-3 h-3 transform rotate-45 -translate-x-[0.5px]" 
-                                    fill="none" 
-                                    stroke="currentColor" 
-                                    viewBox="0 0 24 24" 
-                                    strokeWidth="2.5"
-                                >
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                                </svg>
-                            </button>
-                        )}
+                        <button 
+                            onClick={() => {
+                                if (!composerText.trim()) return;
+                                newMessageDispatch({ type: "guest", message: composerText });
+                                socket.emit("messageFromClient", {
+                                    roomName: roomName.name,
+                                    type: userType.userType || "guest",
+                                    message: composerText,
+                                    xtype: "text"
+                                });
+                                setComposerText("");
+                            }}
+                            disabled={!composerText.trim()}
+                            className={`h-6 w-6 rounded-full flex items-center justify-center text-white shadow-md active:scale-95 focus:outline-none transition-all duration-150 flex-shrink-0 ${
+                                composerText.trim() 
+                                    ? "bg-[#001AFF] hover:bg-blue-700 cursor-pointer" 
+                                    : "bg-[#252525] text-gray-600 cursor-not-allowed opacity-50"
+                            }`}
+                        >
+                            <svg className="w-3.5 h-3.5 transform rotate-45 -translate-x-[0.5px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                            </svg>
+                        </button>
                     </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 }

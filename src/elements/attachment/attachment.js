@@ -2,7 +2,7 @@ import {useRef} from "react"
 import {connect} from "react-redux"
 import {newMessageAction, completion, setUpQueue} from "../../action/index"
 
-function Attachment({name, color, height, width, onChange, cN, sendMessage, msg, userType, roomName, percentageIncrease, setQueue}){
+function Attachment({name, color, height, width, onChange, cN, sendMessage, msg, userType, roomName, percentageIncrease, setQueue, noteId}){
     const inputFile = useRef(null)
     const handleClick = ()=>{
         inputFile.current.click()
@@ -22,12 +22,13 @@ function Attachment({name, color, height, width, onChange, cN, sendMessage, msg,
           name: file.name,
           size: file.size,
           type: file.type,
-          fileId: fileId
+          fileId: fileId,
+          noteId: noteId
         })
        }
 
        setQueue(metadataList)
-       sendMessage({type: 'guest', message: metadataList, niFile: true})
+       sendMessage({type: 'guest', message: metadataList, niFile: true, noteId: noteId})
     }
 
  
