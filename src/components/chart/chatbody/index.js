@@ -20,7 +20,6 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
     const { 
         socket, 
         setDataChannelMessageHandler,
-        setBufferedAmountLowHandler,
         submitBinaryChunk
     } = useContext(WebSocketContext);
 
@@ -80,7 +79,6 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
 
         return () => {
             setDataChannelMessageHandler(null);
-            setBufferedAmountLowHandler(null);
             socket.off('messageFromServer');
         }
     }, [userType, transfers, queued]);
