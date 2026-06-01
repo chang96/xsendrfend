@@ -63,6 +63,8 @@ export default ({ children }) => {
   let statusReceiver;
   let currentRoom;
   let connectionTimeout;
+  let dataChannelMessageHandler = null;
+  let bufferedAmountLowHandler = null;
 
   const dispatch = useDispatch();
 
@@ -79,11 +81,24 @@ export default ({ children }) => {
   }
 
   function submitMessage(data) {
-    if (statusOwner) {
-      lchannel.send(JSON.stringify(data))
+    const activeChannel = statusOwner === "owner" ? lchannel : (remote ? remote.channel : null);
+    if (activeChannel && activeChannel.readyState === "open") {
+      if (data instanceof ArrayBuffer || ArrayBuffer.isView(data)) {
+        activeChannel.send(data);
+      } else {
+        activeChannel.send(JSON.stringify(data));
+      }
     } else {
-      remote.channel.send(JSON.stringify(data))
+      console.warn("WebRTC data channel is not open, sending via Socket.io fallback");
+      socket.emit("messageFromClient", {
+        roomName: currentRoom,
+        ...data
+      });
     }
+  }
+
+  function submitBinaryChunk(roomName, fileId, index, chunk) {
+    socket.emit("file-chunk-relay", { roomName, fileId, index, chunk });
   }
 
   // Cleanup function to properly close connections
@@ -237,6 +252,11 @@ export default ({ children }) => {
 
   // Setup data channel event handlers
   function setupDataChannelHandlers(channel, role) {
+    channel.binaryType = "arraybuffer";
+
+    // Trigger onbufferedamountlow when remaining buffer drops below 16KB
+    channel.bufferedAmountLowThreshold = 16384;
+
     channel.onopen = () => {
       console.log(`[${role}] Data channel opened`);
       dispatch(connectionEstablished());
@@ -249,20 +269,27 @@ export default ({ children }) => {
 
     channel.onerror = (error) => {
       console.error(`[${role}] Data channel error:`, error);
-      // Could dispatch error action here
     };
 
     channel.onbufferedamountlow = () => {
       console.log(`[${role}] Buffer amount low - ready for more data`);
+      if (bufferedAmountLowHandler) {
+        bufferedAmountLowHandler();
+      }
     };
 
-    channel.onmessage = ({ data }) => {
-      try {
-        const message = JSON.parse(data);
-        console.log(`[${role}] Received message:`, message);
-        // Could dispatch message action here
-      } catch (error) {
-        console.error(`[${role}] Error parsing message:`, error);
+    channel.onmessage = (event) => {
+      if (dataChannelMessageHandler) {
+        dataChannelMessageHandler(event);
+      } else {
+        try {
+          if (typeof event.data === "string") {
+            const message = JSON.parse(event.data);
+            console.log(`[${role}] Received message:`, message);
+          }
+        } catch (error) {
+          console.error(`[${role}] Error parsing fallback message:`, error);
+        }
       }
     };
   }
@@ -419,6 +446,18 @@ export default ({ children }) => {
       }
     })
 
+    // Stateless Binary Relay Listener
+    socket.on("file-chunk-received", (data) => {
+      if (dataChannelMessageHandler) {
+        dataChannelMessageHandler({
+          isSocketRelay: true,
+          fileId: data.fileId,
+          index: data.index,
+          chunk: data.chunk
+        });
+      }
+    });
+
     console.log("Socket initialized");
 
     ws = {
@@ -430,8 +469,17 @@ export default ({ children }) => {
       createConnection,
       connectToConnection,
       closeConnection,
-      lchannel: lchannel,
-      remote: remote
+      get lchannel() { return lchannel; },
+      get remote() { return remote; },
+      get statusOwner() { return statusOwner; },
+      get statusReceiver() { return statusReceiver; },
+      setDataChannelMessageHandler: (handler) => {
+        dataChannelMessageHandler = handler;
+      },
+      setBufferedAmountLowHandler: (handler) => {
+        bufferedAmountLowHandler = handler;
+      },
+      submitBinaryChunk: submitBinaryChunk
     }
   }
 

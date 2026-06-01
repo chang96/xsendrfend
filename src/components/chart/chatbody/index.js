@@ -1,435 +1,386 @@
 import ChartBodyElements from "./chatbodyelements";
 import "./index.css"
 import { connect } from "react-redux"
-import {WebSocketContext, } from "../../../utils/websocket"
-import {newMessageAction, completion} from "../../../action/index"
-import {useState, useContext, useEffect, useLayoutEffect} from 'react'
-import download from "../../../assets/download.png"
-function Download (){
-    return <img
-    src={download}
-    alt=''
-    className="w-8 h-8" 
-    />
-}
+import { WebSocketContext } from "../../../utils/websocket"
+import { newMessageAction, completion } from "../../../action/index"
+import { useState, useContext, useEffect } from 'react'
 
-function Sending({comp}){
-    return <div>
-        <div className="flex flex-row">Sending File...
-           <svg role="status" className="w-5 h-5 mr-2 text-gray-200 animate-spin dark:text-gray-600 fill-blue-600" viewBox="0 0 100 101" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z" fill="currentColor"/>
-    <path d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z" fill="currentFill"/>
-</svg></div>
-        <p>{comp}%</p>
-        </div>
-}
-var storedData = ''
-var index = 0
+const formatBytes = (bytes, decimals = 2) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+};
+
 function ChartBody({messageFromServr, completion, sendMessage, userType, roomName, percentageIncrease, newMessageDispatch, queued}){
-    let [state, setState] = useState({
-        loading: false,
-        disabled: false,
-        file:'',
-        comp:0,
-        splitedFile:[]
-    })
-    let {submitMessage, socket} = useContext(WebSocketContext)
+    const [transfers, setTransfers] = useState({});
 
-    useEffect(()=>{
-        
-        socket.on('messageFromServer', data=>{
-           if(data.sender && data.xtype === 'file'){
-           data.type = data.sender? "owner" : "guest"
-           storedData += data.message 
-           console.log(data.completed, data.l)
-           if(data.done){ 
-            newMessageDispatch(data, storedData) 
-            setState((state)=> { 
-                return {...state, loading: false, disabled: false, file: '', splitedFile: [], comp:0} 
-            }) 
-                storedData ='' 
+    const { 
+        socket, 
+        setDataChannelMessageHandler,
+        setBufferedAmountLowHandler,
+        submitBinaryChunk
+    } = useContext(WebSocketContext);
 
-            } else { 
-                let percentSent = (data.completed/data.l)*100
-                setState({...state, loading: true, disabled: true, comp: Math.ceil(percentSent)})
-                console.log("received", Math.ceil(percentSent)) 
-                submitMessage({type: 'owner', niFile: true, roomName: data.roomName, xtype:"file", next: data.completed+1, receiver:true, l:data.l, done: false }) 
-            }} else if(data.receiver && data.xtype === 'file'){ 
-                console.log(data.next, data.l)
-            if(data.next < data.l){ 
-                let percentreceived = (data.next/data.l)*100
-                console.log('sending again', Math.ceil(percentreceived)) 
-                setState({...state, comp: Math.ceil(percentreceived)})
-                let done = data.next+1 === data.l? true : false
-                if(done){
-                    setState((state)=> { 
-                        return {...state, loading: false, disabled: false, file: '', splitedFile: [], comp:0} 
-                    })
-                }
-                submitMessage({type: 'guest', message:state.splitedFile[data.next], niFile: true, roomName: roomName.name, xtype:"file", completed: data.next, l: data.l, sender: true, done:done }) 
-            }  
-            } else {
-                if(data.xtype !== 'file'){
-                    data.type = 'owner';
-                    newMessageDispatch(data)
+    // Socket connections are always open and instant
+    const isChannelOpen = true;
+
+    useEffect(() => {
+        // Register Socket/WebRTC incoming chunk message handler
+        setDataChannelMessageHandler((event) => {
+            if (event.isSocketRelay) {
+                const { fileId, index, chunk } = event;
+                storeIncomingChunk(fileId, index, chunk);
+            } else if (typeof event.data === "string") {
+                try {
+                    const msg = JSON.parse(event.data);
+                    if (msg.xtype === "file-meta") {
+                        handleIncomingFileMeta(msg);
+                    } else if (msg.xtype === "file-done") {
+                        handleIncomingFileDone(msg);
+                    } else {
+                        // Standard chat message
+                        newMessageDispatch({
+                            type: "owner",
+                            message: msg.message
+                        });
+                    }
+                } catch (error) {
+                    console.error("Error parsing WebRTC data channel message:", error);
                 }
             }
-        })
+        });
 
-        console.log("QUEUEDD",queued)
-        if(queued.queued.length > 0){
-            handleClick(queued.queued[0])
-            queued.queued.shift()
-        }
-        // const handleDataArrival = dat=>{
-        //     let data = JSON.parse(dat)
-        //     if(data.sender && data.xtype === 'file'){
-        //     data.type = data.sender? "owner" : "guest"
-        //     storedData += data.message 
-        //     console.log(data.completed, data.l)
-        //     if(data.done){ 
-        //      newMessageDispatch(data, storedData) 
-        //      setState((state)=> { 
-        //          return {...state, loading: false, disabled: false, file: '', splitedFile: [], comp:0} 
-        //      }) 
-        //          storedData ='' 
- 
-        //      } else { 
-        //          let percentSent = (data.completed/data.l)*100
-        //          setState({...state, loading: true, disabled: true, comp: Math.ceil(percentSent)})
-        //          console.log("received", Math.ceil(percentSent)) 
-        //          submitMessage({type: 'owner', niFile: true, roomName: data.roomName, xtype:"file", next: data.completed+1, receiver:true, l:data.l, done: false }) 
-        //      }} else if(data.receiver && data.xtype === 'file'){ 
-        //          console.log(data.next, data.l)
-        //      if(data.next < data.l){ 
-        //          let percentreceived = (data.next/data.l)*100
-        //          console.log('sending again', Math.ceil(percentreceived)) 
-        //          setState({...state, comp: Math.ceil(percentreceived)})
-        //          let done = data.next+1 === data.l? true : false
-        //          if(done){
-        //              setState((state)=> { 
-        //                  return {...state, loading: false, disabled: false, file: '', splitedFile: [], comp:0} 
-        //              })
-        //          }
-        //          submitMessage({type: 'guest', message:state.splitedFile[data.next], niFile: true, roomName: roomName.name, xtype:"file", completed: data.next, l: data.l, sender: true, done:done }) 
-        //      }  
-        //      } else {
-        //          if(data.xtype !== 'file'){
-        //              data.type = 'owner';
-        //              newMessageDispatch(data)
-        //          }
-        //      }
-        //  }
-        //  if(window.lchannel){
-        //     window.lchannel.onmessage = handleDataArrival
-        //     window.lchannel.onbufferedamountlow = (e)=>{
-        //             if(index < state.splitedFile.length-1)
-        //             submitMessage({type: 'guest', message:state.splitedFile[index], niFile: true, roomName: roomName.name, xtype:"file", completed: index, l: state.splitedFile.length, sender: true, done: false})
-        //             else if( index == state.splitedFile.length-1 ){
-        //             submitMessage({type: 'guest', message:state.splitedFile[index], niFile: true, roomName: roomName.name, xtype:"file", completed: index, l: state.splitedFile.length, sender: true, done: true})
-        //             setState((state)=> {
-        //                 return {loading:false, disabled: false, splitedFile:[]}
-        //             })
-        //             index = 0
-        //             }
-        //         index++
-            
-        //     }
-    
-        //  }
-    
-        //  if(window.receive){
-        //     window.receive.onmessage = handleDataArrival
-        //  }
-       
-         
-        
-        //  let rec = (offset, file)=>{
-        //     if(offset < file.length){
-        //     let chunkSize = 64*1024
-        //     const chunkFile = file.slice(offset, offset + chunkSize)
-        //     const chunk =  chunkFile // await.arrayBuffer()
-        //     let frac = (offset + chunkSize)/file.length
-        //     let percent = frac >= 1? 1 : frac
-        //     setState(state=> {
-        //         return {...state, comp: percent}
-        //     })
-        //     submitMessage({type: userType.userType, message:chunk, niFile: true, roomName: roomName.name, xtype:"file", completed: percent})
-        //     offset+= chunkSize
-        //     return rec(offset, file) 
-        //     } else {
-        //         console.log('done o')
-        //         setState({
-        //             loading: false,
-        //             disabled: false,
-        //             file:''
-        //         })
-        //     }
-            
-        // }
+        // Register socket.io message handler as high-reliability fallback
+        socket.on('messageFromServer', data => {
+            if (data.xtype === "file-meta") {
+                handleIncomingFileMeta(data);
+            } else if (data.xtype === "file-done") {
+                handleIncomingFileDone(data);
+            } else if (data.xtype !== 'file') {
+                newMessageDispatch({
+                    type: "owner",
+                    message: data.message
+                });
+            }
+        });
 
-       
-
-        if(state.loading){
-            console.log('sending...')
+        // Trigger queue processing if files are pre-loaded
+        if (queued.queued.length > 0) {
+            const nextFile = queued.queued[0];
+            handleClick(nextFile);
+            queued.queued.shift();
         }
 
-        return ()=> {
-            socket.off('messageFromServer')
+        return () => {
+            setDataChannelMessageHandler(null);
+            setBufferedAmountLowHandler(null);
+            socket.off('messageFromServer');
         }
-        
-    }, [state, queued])
+    }, [userType, transfers, queued]);
 
-  useLayoutEffect(()=>{
-    const handleDataArrival = dat=>{
-        console.log(dat)
-        let data = JSON.parse(dat.data)
-        if(data.sender && data.xtype === 'file'){
-        data.type = data.sender? "owner" : "guest"
-        storedData += data.message 
-        console.log(data.completed, data.l)
-        if(data.done){
-            console.log("bbbbbbbbbbbbbbb") 
-         newMessageDispatch(data, storedData) 
-         setState((state)=> { 
-             return {...state, loading: false, disabled: false, file: '', splitedFile: [], comp:0} 
-         }) 
-             storedData ='' 
+    const handleIncomingFileMeta = (msg) => {
+        window.incomingFiles = window.incomingFiles || {};
+        window.incomingFiles[msg.fileId] = {
+            name: msg.name,
+            size: msg.size,
+            type: msg.type,
+            totalChunks: msg.totalChunks,
+            chunks: [],
+            receivedBytes: 0
+        };
 
-         } else { 
-             let percentSent = (data.completed/data.l)*100
-             setState({...state, loading: true, disabled: true, comp: Math.ceil(percentSent)})
-             console.log("received", Math.ceil(percentSent)) 
-            //  submitMessage({type: 'owner', niFile: true, roomName: data.roomName, xtype:"file", next: data.completed+1, receiver:true, l:data.l, done: false }) 
-         }} else if(data.receiver && data.xtype === 'file'){ 
-             console.log(data.next, data.l)
-         if(data.next < data.l){ 
-             let percentreceived = (data.next/data.l)*100
-             console.log('sending again', Math.ceil(percentreceived)) 
-             setState({...state, comp: Math.ceil(percentreceived)})
-             let done = data.next+1 === data.l? true : false
-             if(done){
-                 setState((state)=> { 
-                     return {...state, loading: false, disabled: false, file: '', splitedFile: [], comp:0} 
-                 })
-             }
-             submitMessage({type: 'guest', message:state.splitedFile[data.next], niFile: true, roomName: roomName.name, xtype:"file", completed: data.next, l: data.l, sender: true, done:done }) 
-         }  
-         } else {
-             if(data.xtype !== 'file'){
-                 data.type = 'owner';
-                 newMessageDispatch(data)
-             }
-         }
-     }
-     if(window.lchannel){
-        window.lchannel.onmessage = handleDataArrival
-        window.lchannel.onbufferedamountlow = (e)=>{
-                if(index < state.splitedFile.length-1)
-                submitMessage({type: 'guest', message:state.splitedFile[index], niFile: true, roomName: roomName.name, xtype:"file", completed: index, l: state.splitedFile.length, sender: true, done: false})
-                else if( index == state.splitedFile.length-1 ){
-                submitMessage({type: 'guest', message:state.splitedFile[index], niFile: true, roomName: roomName.name, xtype:"file", completed: index, l: state.splitedFile.length, sender: true, done: true})
-                setState((state)=> {
-                    return {loading:false, disabled: false, splitedFile:[]}
-                })
-                index = 0
+        setTransfers(prev => ({
+            ...prev,
+            [msg.fileId]: {
+                name: msg.name,
+                size: msg.size,
+                progress: 0,
+                status: "receiving",
+                type: msg.type
+            }
+        }));
+
+        // Dispatch lightweight notification message into chat history
+        newMessageDispatch({
+            type: "owner",
+            niFile: true,
+            message: [{
+                name: msg.name,
+                size: msg.size,
+                type: msg.type,
+                fileId: msg.fileId
+            }]
+        });
+    };
+
+    const storeIncomingChunk = (fileId, index, binaryData) => {
+        const fileStore = window.incomingFiles ? window.incomingFiles[fileId] : null;
+        if (!fileStore) return;
+
+        fileStore.chunks[index] = binaryData;
+        fileStore.receivedBytes += binaryData.byteLength;
+
+        const percent = Math.min(100, Math.ceil((fileStore.receivedBytes / fileStore.size) * 100));
+
+        setTransfers(prev => {
+            if (prev[fileId] && prev[fileId].progress === percent) {
+                return prev;
+            }
+            return {
+                ...prev,
+                [fileId]: {
+                    ...prev[fileId],
+                    progress: percent
                 }
-            index++
-        
+            };
+        });
+    };
+
+    const handleIncomingFileDone = (msg) => {
+        const fileStore = window.incomingFiles ? window.incomingFiles[msg.fileId] : null;
+        if (!fileStore) return;
+
+        const blob = new Blob(fileStore.chunks, { type: fileStore.type });
+        const objectUrl = URL.createObjectURL(blob);
+
+        setTransfers(prev => ({
+            ...prev,
+            [msg.fileId]: {
+                ...prev[msg.fileId],
+                progress: 100,
+                status: "done",
+                objectUrl: objectUrl
+            }
+        }));
+
+        // Clear binary chunks from browser memory cache to prevent leakage
+        delete window.incomingFiles[msg.fileId];
+    };
+
+    const handleClick = (message) => {
+        const file = window.fileMap ? window.fileMap[message.fileId] : null;
+        if (!file) {
+            console.error("File not found in local window cache map.");
+            return;
         }
 
-     }
-     if(window.receive){
-        window.receive.onmessage = handleDataArrival
-     }
+        const chunkSize = 32 * 1024; // High speed 32KB chunks
+        const totalChunks = Math.ceil(file.size / chunkSize);
+        let offset = 0;
+        let chunkIndex = 0;
 
-     if(!window.receive && userType.userType === "guest"){
-        setTimeout(() => window.receive? window.receive.onmessage = handleDataArrival : null, 2000)
-     }
-  })
-    const removeSlash = function(str){
-        let tostr = String(str)
-        let result = tostr.substring(1)
-        return `.${result}` 
-    }
-    const handleClick = function(file){
-        let offset = 0
-        let chunckSize = 16*254 //64*1024
-        let arr = []
-        while(offset < file.length){
-            let chunck = file.slice(offset, offset+chunckSize)
-            arr.push(chunck)
-            offset+=chunckSize
-            console.log("slicing")
-        }
-        
-        setState((state)=> {
-            return {loading: true, disabled: true, splitedFile:arr}
-        })
-        // let done = arr.length === 1? true : false
-        // submitMessage({type: 'guest', message:arr[0], niFile: true, roomName: roomName.name, xtype:"file", completed: 0, l: arr.length, sender: true, done: done})
-        // if(done){
-        //     setState((state)=> { 
-        //         return {...state, loading: false, disabled: false, file: '', splitedFile: [], comp:0} 
-        //     })
-        // }
-        for(let i=0; i<arr.length;i++){
-            index = i
-            if(i < arr.length-1)
-            submitMessage({type: 'guest', message:arr[i], niFile: true, roomName: roomName.name, xtype:"file", completed: i, l: arr.length, sender: true, done: false})
-            else if( i == arr.length-1 ){
-            submitMessage({type: 'guest', message:arr[i], niFile: true, roomName: roomName.name, xtype:"file", completed: i, l: arr.length, sender: true, done: true})
-            setState((state)=> {
-                return {loading:false, disabled: false, splitedFile:[]}
-            })
+        setTransfers(prev => ({
+            ...prev,
+            [message.fileId]: {
+                name: file.name,
+                size: file.size,
+                progress: 0,
+                status: "sending"
+            }
+        }));
+
+        // Broadcast metadata to all room members over the stateless relay
+        socket.emit("file-meta-relay", {
+            roomName: roomName.name,
+            fileId: message.fileId,
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            totalChunks: totalChunks
+        });
+
+        const reader = new FileReader();
+
+        const readNextChunk = () => {
+            if (offset >= file.size) {
+                // Transfer successfully completed
+                socket.emit("file-done-relay", {
+                    roomName: roomName.name,
+                    fileId: message.fileId
+                });
+
+                setTransfers(prev => ({
+                    ...prev,
+                    [message.fileId]: {
+                        ...prev[message.fileId],
+                        progress: 100,
+                        status: "done"
+                    }
+                }));
+                return;
             }
 
-        }
-    }
+            const slice = file.slice(offset, offset + chunkSize);
+            reader.readAsArrayBuffer(slice);
+        };
 
-    let rgx = /(?=\/).*(?=;)/
-    return <div
-        className="relative bg-[#1B1B1B] w-96 mb-4"
-        style={{
-            height:"72%",
-            margin:"0 auto"
+        reader.onload = (e) => {
+            const arrayBuffer = e.target.result;
 
-        }}
-    >
-        <div className="text-white font-thin">{!state.loading? 'space': <Sending comp={state.comp} />}</div>
+            // Stream chunk contents over high-reliability socket binary relay
+            submitBinaryChunk(roomName.name, message.fileId, chunkIndex, arrayBuffer);
+
+            offset += arrayBuffer.byteLength;
+            chunkIndex++;
+
+            const percent = Math.min(100, Math.ceil((offset / file.size) * 100));
+
+            setTransfers(prev => {
+                if (prev[message.fileId] && prev[message.fileId].progress === percent) {
+                    return prev;
+                }
+                return {
+                    ...prev,
+                    [message.fileId]: {
+                        ...prev[message.fileId],
+                        progress: percent
+                    }
+                };
+            });
+
+            // Small delay to allow browser thread to handle visual updates smoothly
+            setTimeout(readNextChunk, 1);
+        };
+
+        readNextChunk();
+    };
+
+    return (
         <div
-        style={{
-            overflowY:"auto",
-            height:"70%",
-            marginTop:"1px",
-            width:"100%"
-            
-        }}
+            className="relative bg-[#121212] w-full max-w-md mx-auto flex flex-col justify-between"
+            style={{ height: "85vh", borderRight: "1px solid #1f1f1f", borderLeft: "1px solid #1f1f1f" }}
         >
-        {messageFromServr.messages.map(function(message, i){
-            if(message.type=== "owner"){
-                if(message.niFile){
-                
-                   return <div style={{
-                        color:"white",
-                        width:"100%",
-                        padding:"2px"
-    
-                    }} key={i}>
-                    <object
-                    style={{
-                        width:"120px",
-                        height:'60px',
-                        border:"1px solid blue",
-                        borderRadius:"10px"
-                    }}
-                    data={message.message}
-
-                    ></object>
-                    <span className="flex flex-row">
-                    <a href={message.message} download={Date.now()} ><Download /></a>
-                    <span className="text-sm font-thin ml-1">{removeSlash(message.message.match(rgx))}</span>
-                </span>
-                </div> 
-                } else 
-                return  <div style={{
-                    color:"white",
-                    width:"100%",
-                    padding:"2px"
-
-                }} key={i}>
-                <p
-                style={{
-                    width:"50%",
-                    backgroundColor:message.message.length>0?"#2D2929":"",
-                    padding:"5px",
-                    borderRadius:"10px",
-                    wordBreak:"break-all",
-                    // height:"35px"
-                }}
-                >{(message.message)}</p>
-            </div> 
-        } else {
-            if(message.niFile){
-                return message.message.map((message, j)=>{
-                    return <div style={{
-                        display:"flex",
-                        float:"right",
-                        width:"100%",
-                        justifyContent:"end",
-                        color:"white",
-                        padding:"2px",
-                    }} key={j}>
-                        {/* <p className="font-thin from-neutral-400 text-sm">{(state.comp)}/100</p> */}
-                    <div>
-                    <object
-                    style={{
-                        width:"120px",
-                        height:'60px',
-                        border:"1px solid blue",
-                        borderRadius:"10px"
-                    }}
-                    data={message}
-                    
-                    ></object>
-                    <span className="flex flex-row">
-                        <button
-                        className="font-thin text-sm rounded mt-1 text-white bg-[#001AFF]"
-                        onClick={()=> handleClick(message)}
-                        disabled={state.disabled}
-                        >Send ☁</button>
-                        <span className="text-sm font-thin ml-1">{removeSlash(message.match(rgx))}</span>
-                    </span>
-                    </div>
-                </div> 
-                })
-            
-            } else return    <div
-                style={{
-                    display:"flex",
-                    width:"100%",
-                    justifyContent:"end",
-                    color:"white",
-                    padding:"2px",
-
-                }}
-                key={i}
-                >
-                    <div
-                    style={{
-                        width:"50%",
-                        textAlign:"left",
-                        display:"flex",
-                        flexWrap:"wrap",
-                        padding:"2px"
-                    }}
-                    ><p style={{
-                        width:"100%",
-                        backgroundColor:message.message.length>0?"#2D2929":"",
-                        padding:"5px",
-                        borderRadius:"10px",
-                        wordBreak:"break-all",
-                        // height:"35px"
-
-                    }}>{(message.message)}</p></div>
+            {/* Space Title/Header */}
+            <div className="bg-[#1b1b1b] border-b border-[#252525] px-4 py-3 flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                    <span className="h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse"></span>
+                    <span className="text-white text-xs font-medium tracking-wider uppercase">Active Space</span>
                 </div>
-            }
-        })}
+                <div className="text-gray-400 text-xs font-semibold px-2 py-0.5 rounded bg-[#242424]">
+                    {roomName.name}
+                </div>
+            </div>
+
+            {/* Chat/File log container */}
+            <div
+                className="flex-1 overflow-y-auto px-4 py-3 space-y-3"
+                style={{ scrollbarWidth: "thin" }}
+            >
+                {messageFromServr.messages.map(function(message, i){
+                    const isOwner = message.type === "owner";
+
+                    if (message.niFile) {
+                        return (message.message || []).map((fileMeta, j) => {
+                            const transfer = transfers[fileMeta.fileId] || { progress: 0, status: "idle" };
+                            const isActive = transfer.status === "sending" || transfer.status === "receiving";
+                            const isDone = transfer.status === "done";
+
+                            return (
+                                <div 
+                                    key={j} 
+                                    className={`flex w-full ${isOwner ? 'justify-start' : 'justify-end'}`}
+                                >
+                                    <div className="bg-[#1E1E1E] rounded-xl p-3 border border-[#2b2b2b] shadow-lg w-72 transition-all duration-200">
+                                        <div className="flex items-center space-x-3 truncate">
+                                            <div className="p-2.5 bg-[#001AFF] bg-opacity-10 text-[#001AFF] rounded-lg">
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                                </svg>
+                                            </div>
+                                            <div className="truncate text-left flex-1">
+                                                <h4 className="text-white text-xs font-medium truncate leading-tight" title={fileMeta.name}>{fileMeta.name}</h4>
+                                                <span className="text-[#777777] text-[10px]">{formatBytes(fileMeta.size)}</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Dynamic Progress indicator */}
+                                        {(isActive || isDone) && (
+                                            <div className="mt-3">
+                                                <div className="w-full bg-[#121212] rounded-full h-1 overflow-hidden">
+                                                    <div 
+                                                        className="bg-[#001AFF] h-full rounded-full transition-all duration-300 ease-out"
+                                                        style={{ width: `${transfer.progress}%` }}
+                                                    />
+                                                </div>
+                                                <div className="flex justify-between items-center mt-1 text-[9px] text-[#777777]">
+                                                    <span>{transfer.status === "sending" ? "Streaming to Room..." : transfer.status === "receiving" ? "Receiving Stream..." : "Ready in Room"}</span>
+                                                    <span>{transfer.progress}%</span>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Action controls */}
+                                        <div className="mt-2.5 flex justify-end space-x-2">
+                                            {/* Send button for the uploading user */}
+                                            {!isOwner && !isActive && !isDone && (
+                                                <button
+                                                    className={`text-[10px] font-semibold px-2.5 py-1 rounded shadow transition-all duration-150 ${
+                                                        isChannelOpen 
+                                                            ? "bg-[#001AFF] text-white hover:bg-blue-700 cursor-pointer" 
+                                                            : "bg-[#252525] text-gray-500 cursor-not-allowed"
+                                                    }`}
+                                                    onClick={() => handleClick(fileMeta)}
+                                                    disabled={!isChannelOpen}
+                                                >
+                                                    {isChannelOpen ? "Send to Room ☁" : "Connecting..."}
+                                                </button>
+                                            )}
+
+                                            {/* Download/Save button for the receiving user */}
+                                            {isOwner && isDone && (
+                                                <a
+                                                    href={transfer.objectUrl || "#"}
+                                                    download={fileMeta.name}
+                                                    className="text-[10px] font-semibold px-2.5 py-1 rounded text-white bg-green-600 hover:bg-green-700 shadow transition-all duration-150 flex items-center space-x-1"
+                                                >
+                                                    <span>Save File ⬇</span>
+                                                </a>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        });
+                    }
+
+                    // Render Standard Text Messages
+                    return (
+                        <div
+                            key={i}
+                            className={`flex w-full ${isOwner ? 'justify-start' : 'justify-end'}`}
+                        >
+                            <div
+                                className={`max-w-[70%] rounded-xl px-3 py-2 text-xs leading-relaxed shadow-sm text-left break-all ${
+                                    isOwner 
+                                        ? 'bg-[#1E1E1E] text-gray-200 border border-[#2b2b2b]' 
+                                        : 'bg-[#001AFF] text-white'
+                                }`}
+                            >
+                                {message.message}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* Input & attachments footer bar */}
+            <div className="bg-[#121212] border-t border-[#1f1f1f] px-3 py-3">
+                <ChartBodyElements />
+            </div>
         </div>
-        <div
-        className="absolute bottom-0 left-[10%] sm:absolute sm:bottom-5 sm:left-[12%]"
-        ><ChartBodyElements /></div>
-    </div>
+    );
 }
 
 const mapStateToProps = state=> {
     return {
         ...state
     }
-  }
+}
   
-  
-  const mapDispatchToProps = dispatch => {
+const mapDispatchToProps = dispatch => {
     return {
         sendMessage: (payload)=> dispatch(newMessageAction(payload)),
         percentageIncrease: (payload)=> dispatch(completion(payload)),
@@ -437,9 +388,10 @@ const mapStateToProps = state=> {
              if(storedData){
                  return dispatch(newMessageAction({...payload, message: storedData})) 
             } else { 
-            return dispatch(newMessageAction({...payload})) 
-            } }
+                 return dispatch(newMessageAction({...payload})) 
+            } 
+        }
     }
-  }
+}
 
 export default connect(mapStateToProps, mapDispatchToProps)(ChartBody)
