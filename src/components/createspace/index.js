@@ -19,7 +19,7 @@ function CreateSpace({joined, socket, join}){
         </div>
         <div className="text-left">
           <h3 className="text-white text-sm font-semibold tracking-wide">
-            {loading ? "Creating Space..." : "New Transfer Space"}
+            {loading ? "Creating..." : "New Transfer Room"}
           </h3>
           <p className="text-[#777777] text-[11px] leading-tight mt-0.5">
             Set up a secure stateless room to share large files and real-time chat.
@@ -47,7 +47,7 @@ function CreateSpace({joined, socket, join}){
           </>
         ) : (
           <>
-            <span>Create Space</span>
+            <span>Create Room</span>
             <span className="text-sm font-light">+</span>
           </>
         )}

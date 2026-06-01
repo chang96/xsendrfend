@@ -22,7 +22,7 @@ function JoinSpace({roomName, changeName}){
                 </div>
                 <div className="text-left">
                   <h3 className="text-white text-sm font-semibold tracking-wide">
-                    Join Existing Space
+                    Join Existing Room
                   </h3>
                   <p className="text-[#777777] text-[11px] leading-tight mt-0.5">
                     Enter a 4-letter alphanumeric code to securely enter an active room.

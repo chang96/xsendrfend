@@ -8,7 +8,7 @@ function ChartHead({roomName}){
                 <Connected roomName={roomName} />
             </div>
             <div className="flex items-center space-x-1.5 text-white">
-                <span className="text-xs font-semibold uppercase tracking-wider text-blue-200">Space Code:</span>
+                <span className="text-xs font-semibold uppercase tracking-wider text-blue-200">Code:</span>
                 <span className="text-sm font-bold bg-white bg-opacity-20 px-2 py-0.5 rounded tracking-widest">{roomName.name}</span>
             </div>
         </div>

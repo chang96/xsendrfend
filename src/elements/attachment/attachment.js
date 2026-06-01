@@ -1,4 +1,3 @@
-import attach from "../../assets/attach.png"
 import {useRef} from "react"
 import {connect} from "react-redux"
 import {newMessageAction, completion, setUpQueue} from "../../action/index"
@@ -32,10 +31,27 @@ function Attachment({name, color, height, width, onChange, cN, sendMessage, msg,
     }
 
  
-    return <div className="">
-        <img alt="" onClick={()=>handleClick()} src={attach} className="w-8 h-10 cursor-pointer" /> 
-        <input type="file" ref={inputFile} name={'file'} style={{width: 0, height: 0, color: color, display:"none"}} onChange={(e)=> handleChange(e)} />
-    </div>
+    return (
+        <div className="flex items-center justify-center">
+            <svg 
+                onClick={handleClick} 
+                className="w-[18px] h-[18px] cursor-pointer text-gray-400 hover:text-white transition-colors duration-150" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2.5" 
+                viewBox="0 0 24 24"
+            >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+            </svg>
+            <input 
+                type="file" 
+                ref={inputFile} 
+                name="file" 
+                style={{ display: "none" }} 
+                onChange={handleChange} 
+            />
+        </div>
+    );
 }
 
 const mapStateToProps = state=> {
