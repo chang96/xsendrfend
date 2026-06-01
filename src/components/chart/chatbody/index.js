@@ -30,7 +30,11 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
     useEffect(() => {
         // Register Socket/WebRTC incoming chunk message handler
         setDataChannelMessageHandler((event) => {
-            if (event.isSocketRelay) {
+            if (event.isSocketAck) {
+                if (window.onFileChunkAckReceived) {
+                    window.onFileChunkAckReceived(event.fileId, event.index);
+                }
+            } else if (event.isSocketRelay) {
                 const { fileId, index, chunk } = event;
                 storeIncomingChunk(fileId, index, chunk);
             } else if (typeof event.data === "string") {
@@ -123,6 +127,13 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
         fileStore.chunks[index] = binaryData;
         fileStore.receivedBytes += binaryData.byteLength;
 
+        // Emit ACK back to the sender
+        socket.emit("file-chunk-ack", {
+            roomName: roomName.name,
+            fileId: fileId,
+            index: index
+        });
+
         const percent = Math.min(100, Math.ceil((fileStore.receivedBytes / fileStore.size) * 100));
 
         setTransfers(prev => {
@@ -169,8 +180,12 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
 
         const chunkSize = 32 * 1024; // High speed 32KB chunks
         const totalChunks = Math.ceil(file.size / chunkSize);
-        let offset = 0;
-        let chunkIndex = 0;
+        
+        // Sliding Window variables
+        const windowSize = 8; // Max 8 chunks in-flight (256KB)
+        let nextChunkIndex = 0;
+        let latestAckIndex = -1;
+        let isReading = false;
 
         setTransfers(prev => ({
             ...prev,
@@ -194,38 +209,53 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
 
         const reader = new FileReader();
 
-        const readNextChunk = () => {
-            if (offset >= file.size) {
-                // Transfer successfully completed
-                socket.emit("file-done-relay", {
-                    roomName: roomName.name,
-                    fileId: message.fileId
-                });
+        const sendNextChunks = () => {
+            if (isReading) return;
 
-                setTransfers(prev => ({
-                    ...prev,
-                    [message.fileId]: {
-                        ...prev[message.fileId],
-                        progress: 100,
-                        status: "done"
-                    }
-                }));
+            // Check if we finished sending all chunks
+            if (nextChunkIndex >= totalChunks) {
+                // If all chunks are successfully acknowledged, we are fully done!
+                if (latestAckIndex >= totalChunks - 1) {
+                    socket.emit("file-done-relay", {
+                        roomName: roomName.name,
+                        fileId: message.fileId
+                    });
+
+                    setTransfers(prev => ({
+                        ...prev,
+                        [message.fileId]: {
+                            ...prev[message.fileId],
+                            progress: 100,
+                            status: "done"
+                        }
+                    }));
+                    
+                    // Clear the global ACK listener
+                    window.onFileChunkAckReceived = null;
+                }
                 return;
             }
 
-            const slice = file.slice(offset, offset + chunkSize);
-            reader.readAsArrayBuffer(slice);
+            // Fill the sliding window: read and send while we have window capacity
+            if (nextChunkIndex - latestAckIndex <= windowSize) {
+                isReading = true;
+                const offset = nextChunkIndex * chunkSize;
+                const slice = file.slice(offset, offset + chunkSize);
+                reader.readAsArrayBuffer(slice);
+            }
         };
 
         reader.onload = (e) => {
             const arrayBuffer = e.target.result;
+            const currentSendingIndex = nextChunkIndex;
 
-            // Stream chunk contents over high-reliability socket binary relay
-            submitBinaryChunk(roomName.name, message.fileId, chunkIndex, arrayBuffer);
+            // Stream chunk contents over socket binary relay
+            submitBinaryChunk(roomName.name, message.fileId, currentSendingIndex, arrayBuffer);
 
-            offset += arrayBuffer.byteLength;
-            chunkIndex++;
+            nextChunkIndex++;
+            isReading = false;
 
+            const offset = nextChunkIndex * chunkSize;
             const percent = Math.min(100, Math.ceil((offset / file.size) * 100));
 
             setTransfers(prev => {
@@ -241,11 +271,22 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                 };
             });
 
-            // Small delay to allow browser thread to handle visual updates smoothly
-            setTimeout(readNextChunk, 1);
+            // Try to send the next chunk that fits in the window
+            sendNextChunks();
         };
 
-        readNextChunk();
+        // Listen for ACKs to slide the window forward
+        window.onFileChunkAckReceived = (fileId, ackIndex) => {
+            if (fileId === message.fileId) {
+                latestAckIndex = Math.max(latestAckIndex, ackIndex);
+                
+                // Slide window and trigger next chunk sending
+                sendNextChunks();
+            }
+        };
+
+        // Trigger the initial batch burst (will fill up to the window size)
+        sendNextChunks();
     };
 
     return (

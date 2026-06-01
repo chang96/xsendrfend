@@ -458,6 +458,16 @@ export default ({ children }) => {
       }
     });
 
+    socket.on("file-chunk-ack-received", (data) => {
+      if (dataChannelMessageHandler) {
+        dataChannelMessageHandler({
+          isSocketAck: true,
+          fileId: data.fileId,
+          index: data.index
+        });
+      }
+    });
+
     console.log("Socket initialized");
 
     ws = {
