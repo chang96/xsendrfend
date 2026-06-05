@@ -45,6 +45,20 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
         }, 5000);
     };
 
+    const [showOnboarding, setShowOnboarding] = useState(false);
+
+    useEffect(() => {
+        const shown = localStorage.getItem("faax_onboarding_shown");
+        if (!shown) {
+            setShowOnboarding(true);
+        }
+    }, []);
+
+    const dismissOnboarding = () => {
+        setShowOnboarding(false);
+        localStorage.setItem("faax_onboarding_shown", "true");
+    };
+
     useEffect(() => {
         return () => {
             if (notificationTimeoutRef.current) {
@@ -800,6 +814,30 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                 </div>
             </div>
 
+            {/* Onboarding popover */}
+            {showOnboarding && (
+                <div className="absolute right-4 top-[48px] bg-[#1E1E1F]/95 border border-[#2b2b2b] rounded-xl p-3.5 shadow-2xl z-40 max-w-[220px] text-[10px] text-gray-300 leading-relaxed text-left backdrop-blur-md">
+                    <div className="absolute right-6 top-[-5px] w-2.5 h-2.5 bg-[#1E1E1F] border-t border-l border-[#2b2b2b] rotate-45"></div>
+                    <p className="font-semibold text-white mb-2 uppercase tracking-wider text-[8px] flex items-center space-x-1">
+                        <span>💡 Interface Modes</span>
+                    </p>
+                    <div className="space-y-2 text-[10px] text-gray-400">
+                        <div>
+                            <span className="font-bold text-white">📝 Notes:</span> Type text or upload files inside collaborative note cards that sync character-by-character in real-time.
+                        </div>
+                        <div>
+                            <span className="font-bold text-white">💬 Chat:</span> Send standard messages and transfer files directly inside a rolling room timeline.
+                        </div>
+                    </div>
+                    <button 
+                        onClick={dismissOnboarding}
+                        className="mt-3 w-full py-1.5 rounded-lg bg-[#001AFF] hover:bg-blue-700 text-white font-bold text-[8px] uppercase tracking-widest transition-all cursor-pointer"
+                    >
+                        Got it
+                    </button>
+                </div>
+            )}
+
             {/* Content pane based on viewMode */}
             {viewMode === "notes" ? (
                 /* NOTES MODE: Collaborative Notes stack pile (Newest at top) */
@@ -1035,10 +1073,102 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                         if (message.niFile) {
                             return (message.message || []).map((fileMeta, j) => {
                                 const transfer = transfers[fileMeta.fileId] || { progress: 0, status: "idle" };
+                                const isActive = transfer.status === "sending" || transfer.status === "receiving" || transfer.status === "paused" || transfer.status === "retrying";
+                                const isDone = transfer.status === "done";
+                                const isFileOwner = fileMeta.ownerType === "owner";
+
                                 return (
-                                    <div key={`${i}-${j}`} className={`flex w-full ${isOwner ? 'justify-start' : 'justify-end'}`}>
-                                        <div className="bg-[#1E1E1E] rounded-xl px-3 py-2 text-xs border border-[#2b2b2b] text-left text-gray-300">
-                                            📁 File Note: <span className="text-white font-medium">{fileMeta.name}</span> ({transfer.progress}%)
+                                    <div key={`${i}-${j}`} className={`flex w-full ${isOwner ? 'justify-start' : 'justify-end'} mb-2`}>
+                                        <div className="w-full max-w-[280px] text-xs text-left bg-[#1E1E1E] border border-[#2b2b2b] rounded-xl p-3 shadow-md">
+                                            <div className="flex items-center space-x-2 truncate">
+                                                <div className="p-2 bg-[#001AFF] bg-opacity-10 text-[#001AFF] rounded-lg flex-shrink-0">
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                                    </svg>
+                                                </div>
+                                                <div className="truncate flex-1 text-left">
+                                                    <h4 className="text-white text-[11px] font-semibold truncate leading-tight" title={fileMeta.name}>{fileMeta.name}</h4>
+                                                    <span className="text-[#777777] text-[9px]">{formatBytes(fileMeta.size)}</span>
+                                                </div>
+                                            </div>
+
+                                            {/* Dynamic Progress indicator */}
+                                            {(isActive || isDone) && (
+                                                <div className="mt-2.5">
+                                                    <div className="w-full bg-[#121212] rounded-full h-1 overflow-hidden">
+                                                        <div 
+                                                            className={`h-full rounded-full transition-all duration-300 ease-out ${
+                                                                transfer.status === "paused" 
+                                                                    ? "bg-red-500" 
+                                                                    : transfer.status === "retrying"
+                                                                    ? "bg-yellow-500 animate-pulse"
+                                                                    : "bg-[#001AFF]"
+                                                            }`}
+                                                            style={{ width: `${transfer.progress}%` }}
+                                                        />
+                                                    </div>
+                                                    <div className="flex justify-between items-center mt-1 text-[8px] text-[#777777]">
+                                                        <span>
+                                                            {transfer.status === "sending" 
+                                                                ? "Streaming..." 
+                                                                : transfer.status === "receiving" 
+                                                                ? "Receiving..." 
+                                                                : transfer.status === "paused"
+                                                                ? "Paused"
+                                                                : transfer.status === "retrying"
+                                                                ? "Resuming..."
+                                                                : "Ready"}
+                                                        </span>
+                                                        <span>{transfer.progress}%</span>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Action controls */}
+                                            <div className="mt-2 flex justify-end space-x-1.5">
+                                                {/* Send button for the uploading user */}
+                                                {!isFileOwner && !isActive && !isDone && (
+                                                    <button
+                                                        className={`text-[9px] font-semibold px-2 py-0.5 rounded shadow transition-all duration-150 ${
+                                                            isChannelOpen 
+                                                                ? "bg-[#001AFF] text-white hover:bg-blue-700 cursor-pointer" 
+                                                                : "bg-[#252525] text-gray-500 cursor-not-allowed"
+                                                        }`}
+                                                        onClick={() => handleClick(fileMeta)}
+                                                        disabled={!isChannelOpen}
+                                                    >
+                                                        {isChannelOpen ? "Send ☁" : "Connecting..."}
+                                                    </button>
+                                                )}
+
+                                                {/* Retry/Paused status controls */}
+                                                {!isFileOwner && transfer.status === "paused" && (
+                                                    <button
+                                                        className="text-[9px] font-semibold px-2 py-0.5 rounded border border-red-500/30 text-red-400 bg-red-950/20 hover:bg-red-900/30 shadow transition-all duration-150 cursor-pointer flex items-center space-x-1"
+                                                        onClick={() => handleRetry(fileMeta)}
+                                                    >
+                                                        <span>Retry 🔄</span>
+                                                    </button>
+                                                )}
+
+                                                {isFileOwner && transfer.status === "paused" && (
+                                                    <div className="text-[8px] font-medium px-2 py-0.5 rounded border border-red-500/20 text-red-400 bg-red-950/10 flex items-center space-x-1 select-none">
+                                                        <span className="h-1 w-1 rounded-full bg-red-400 animate-ping"></span>
+                                                        <span>Paused</span>
+                                                    </div>
+                                                )}
+
+                                                {/* Download/Save button for the receiving user */}
+                                                {isFileOwner && isDone && (
+                                                    <a
+                                                        href={transfer.objectUrl || "#"}
+                                                        download={fileMeta.name}
+                                                        className="text-[9px] font-semibold px-2 py-0.5 rounded text-white bg-green-600 hover:bg-green-700 shadow transition-all duration-150 flex items-center space-x-1"
+                                                    >
+                                                        <span>Save ⬇</span>
+                                                    </a>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 );
