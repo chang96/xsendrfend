@@ -242,7 +242,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                 // Update sender sliding window pointer
                 session.nextChunkIndex = nextIndex;
                 session.latestAckIndex = nextIndex - 1;
-                session.isReading = false;
+                session.version++;
 
                 // Update UI status to sending
                 setTransfers(prev => ({
@@ -281,7 +281,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
             socket.off('file-resume-response-received');
             window.onFileChunkAckReceived = null;
         }
-    }, [userType, transfers, queued]);
+    }, [userType, transfers, queued, roomName.name]);
 
     const handleIncomingNoteCreate = (data) => {
         const noteId = data.noteId;
@@ -371,6 +371,11 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
         const fileStore = window.incomingFiles ? window.incomingFiles[fileId] : null;
         if (!fileStore) return;
 
+        // Prevent duplicate chunk byte aggregation in case of retransmissions
+        if (fileStore.chunks[index] !== undefined) {
+            return;
+        }
+
         fileStore.chunks[index] = binaryData;
         fileStore.receivedBytes += binaryData.byteLength;
 
@@ -449,8 +454,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
             windowSize: windowSize,
             nextChunkIndex: 0,
             latestAckIndex: -1,
-            isReading: false,
-            reader: new FileReader(),
+            version: 0,
             ackTimeoutTimer: null,
             sendNextChunks: null
         };
@@ -478,24 +482,25 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
         });
 
         const sendNextChunks = () => {
-            if (session.isReading) return;
+            // Guard against operations when paused
+            const activeSession = window.activeSenderSessions ? window.activeSenderSessions[message.fileId] : null;
+            if (!activeSession) return;
 
             // Reset heartbeat timer during active sending loop
             resetHeartbeat(message.fileId);
 
             // Check if we finished sending all chunks
-            if (session.nextChunkIndex >= session.totalChunks) {
+            if (activeSession.nextChunkIndex >= activeSession.totalChunks) {
                 // If all chunks are successfully acknowledged, we are fully done!
-                if (session.latestAckIndex >= session.totalChunks - 1) {
+                if (activeSession.latestAckIndex >= activeSession.totalChunks - 1) {
                     socket.emit("file-done-relay", {
                         roomName: roomName.name,
                         fileId: message.fileId
-                    });
+                      });
 
-                    // Clear timeout
-                    if (session.ackTimeoutTimer) {
-                        clearTimeout(session.ackTimeoutTimer);
-                        session.ackTimeoutTimer = null;
+                    if (activeSession.ackTimeoutTimer) {
+                        clearTimeout(activeSession.ackTimeoutTimer);
+                        activeSession.ackTimeoutTimer = null;
                     }
 
                     setTransfers(prev => ({
@@ -507,53 +512,70 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                         }
                     }));
                     
-                    // Clear active sender session
                     delete window.activeSenderSessions[message.fileId];
                 }
                 return;
             }
 
             // Fill the sliding window: read and send while we have window capacity
-            if (session.nextChunkIndex - session.latestAckIndex <= session.windowSize) {
-                session.isReading = true;
-                const offset = session.nextChunkIndex * session.chunkSize;
-                const slice = session.file.slice(offset, offset + session.chunkSize);
-                session.reader.readAsArrayBuffer(slice);
+            const inFlight = activeSession.nextChunkIndex - activeSession.latestAckIndex;
+            if (inFlight <= activeSession.windowSize) {
+                const chunkIndex = activeSession.nextChunkIndex;
+                const currentVersion = activeSession.version;
+                activeSession.nextChunkIndex++;
+
+                const offset = chunkIndex * activeSession.chunkSize;
+                const slice = activeSession.file.slice(offset, offset + activeSession.chunkSize);
+                
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    // Check if the session is still active
+                    const s = window.activeSenderSessions ? window.activeSenderSessions[message.fileId] : null;
+                    if (!s) return;
+
+                    // If a resume handshake happened in the meantime, discard this read
+                    if (currentVersion !== s.version) {
+                        return;
+                    }
+
+                    // Check if this chunk is already processed
+                    if (chunkIndex <= s.latestAckIndex) {
+                        return;
+                    }
+
+                    const arrayBuffer = e.target.result;
+
+                    // Stream chunk contents over socket binary relay
+                    submitBinaryChunk(roomName.name, message.fileId, chunkIndex, arrayBuffer);
+
+                    const percent = Math.min(100, Math.ceil(((chunkIndex + 1) * s.chunkSize) / s.file.size * 100));
+
+                    setTransfers(prev => {
+                        if (prev[message.fileId] && prev[message.fileId].progress === percent) {
+                            return prev;
+                        }
+                        return {
+                            ...prev,
+                            [message.fileId]: {
+                                ...prev[message.fileId],
+                                progress: percent
+                            }
+                        };
+                    });
+
+                    // Trigger next chunk reading
+                    sendNextChunks();
+                };
+
+                reader.readAsArrayBuffer(slice);
+
+                // Try to fill window concurrently
+                sendNextChunks();
             }
         };
 
         // Attach function reference to session object for external access on retry
         session.sendNextChunks = sendNextChunks;
-
-        session.reader.onload = (e) => {
-            const arrayBuffer = e.target.result;
-            const currentSendingIndex = session.nextChunkIndex;
-
-            // Stream chunk contents over socket binary relay
-            submitBinaryChunk(roomName.name, message.fileId, currentSendingIndex, arrayBuffer);
-
-            session.nextChunkIndex++;
-            session.isReading = false;
-
-            const offset = session.nextChunkIndex * session.chunkSize;
-            const percent = Math.min(100, Math.ceil((offset / session.file.size) * 100));
-
-            setTransfers(prev => {
-                if (prev[message.fileId] && prev[message.fileId].progress === percent) {
-                    return prev;
-                }
-                return {
-                    ...prev,
-                    [message.fileId]: {
-                        ...prev[message.fileId],
-                        progress: percent
-                    }
-                };
-            });
-
-            // Try to send the next chunk that fits in the window
-            sendNextChunks();
-        };
 
         // Trigger the initial batch burst (will fill up to the window size)
         sendNextChunks();

@@ -52,6 +52,10 @@ export default ({ children }) => {
     socket.on("connect", () => {
       console.log("Socket.io connected successfully!");
       dispatch(connectionEstablished(true));
+      if (currentRoom) {
+        console.log("Auto-rejoining room on reconnection:", currentRoom);
+        socket.emit("joinRoom", { roomName: currentRoom });
+      }
     });
 
     socket.on("disconnect", () => {
