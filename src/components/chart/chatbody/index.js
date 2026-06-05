@@ -35,14 +35,14 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
         setShouldShake(true);
         setTimeout(() => setShouldShake(false), 400);
 
-        setNotification("Connect another device to this room to start transferring.");
+        setNotification("Connect another device to transfer");
 
         if (notificationTimeoutRef.current) {
             clearTimeout(notificationTimeoutRef.current);
         }
         notificationTimeoutRef.current = setTimeout(() => {
             setNotification(null);
-        }, 5000);
+        }, 3000);
     };
 
     const [showOnboarding, setShowOnboarding] = useState(false);
@@ -406,6 +406,20 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                 });
             });
         }
+
+        // Dispatch to Redux to show in the Chat view on the receiver's end
+        newMessageDispatch({
+            type: "owner",
+            message: [{
+                name: msg.name,
+                size: msg.size,
+                type: msg.type,
+                fileId: msg.fileId,
+                noteId: noteId,
+                ownerType: "owner"
+            }],
+            niFile: true
+        });
     };
 
     const storeIncomingChunk = (fileId, index, binaryData) => {
@@ -478,7 +492,6 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
     const handleClick = (message) => {
         if (peersCount === 0) {
             triggerNoDeviceAlert();
-            return;
         }
         const file = window.fileMap ? window.fileMap[message.fileId] : null;
         if (!file) {
@@ -763,23 +776,13 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                     </span>
                 </div>
 
-                {/* Alert Notification Banner */}
+                {/* Alert Notification Toast */}
                 {notification && (
-                    <div className="absolute top-[48px] left-4 right-4 bg-red-500/10 border border-red-500/30 rounded-xl p-3 backdrop-blur-md z-30 flex items-center justify-between shadow-lg transition-all duration-300">
-                        <div className="flex items-center space-x-2 text-left">
-                            <svg className="w-4.5 h-4.5 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                            </svg>
-                            <span className="text-red-200 text-[10px] font-medium leading-relaxed">
-                                {notification}
-                            </span>
-                        </div>
-                        <button 
-                            onClick={() => setNotification(null)}
-                            className="text-red-400 hover:text-white text-[10px] ml-2 font-bold cursor-pointer"
-                        >
-                            ✕
-                        </button>
+                    <div className="absolute top-[46px] left-1/2 transform -translate-x-1/2 bg-[#ff3b30] text-white text-[9px] font-bold px-3 py-1 rounded-full shadow-lg z-30 flex items-center space-x-1.5 backdrop-blur-md bg-opacity-95 transition-all duration-300">
+                        <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <span className="whitespace-nowrap">{notification}</span>
                     </div>
                 )}
 
@@ -1229,7 +1232,6 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                                 if (e.key === "Enter") {
                                     if (peersCount === 0) {
                                         triggerNoDeviceAlert();
-                                        return;
                                     }
                                     // Send standard chat message
                                     if (!composerText.trim()) return;
@@ -1252,7 +1254,6 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                             onClick={() => {
                                 if (peersCount === 0) {
                                     triggerNoDeviceAlert();
-                                    return;
                                 }
                                 if (!composerText.trim()) return;
                                 newMessageDispatch({ type: "guest", message: composerText });

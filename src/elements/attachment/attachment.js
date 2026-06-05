@@ -7,7 +7,6 @@ function Attachment({name, color, height, width, onChange, cN, sendMessage, msg,
     const handleClick = ()=>{
         if (peersCount === 0) {
             if (triggerNoDeviceAlert) triggerNoDeviceAlert();
-            return;
         }
         inputFile.current.click()
     }

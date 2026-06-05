@@ -14,15 +14,14 @@ const WebSocketContext = createContext(null)
 
 export { WebSocketContext }
 
+let socket;
+let statusOwner;
+let statusReceiver;
+let currentRoom;
+let dataChannelMessageHandler = null;
+
 export default ({ children }) => {
   const [peersCount, setPeersCount] = useState(0);
-  let socket;
-  let ws;
-  let statusOwner;
-  let statusReceiver;
-  let currentRoom;
-  let dataChannelMessageHandler = null;
-
   const dispatch = useDispatch();
 
   const sendMessage = (roomId, message) => {}
@@ -121,20 +120,20 @@ export default ({ children }) => {
     });
 
     console.log("Socket initialized");
+  }
 
-    ws = {
-      socket: socket,
-      sendMessage: sendMessage,
-      createRoom: createRoom,
-      joinRoom: joinRoom,
-      submitMessage: submitMessage,
-      submitBinaryChunk: submitBinaryChunk,
-      get statusOwner() { return statusOwner; },
-      get statusReceiver() { return statusReceiver; },
-      get peersCount() { return peersCount; },
-      setDataChannelMessageHandler: (handler) => {
-        dataChannelMessageHandler = handler;
-      }
+  const ws = {
+    socket: socket,
+    sendMessage: sendMessage,
+    createRoom: createRoom,
+    joinRoom: joinRoom,
+    submitMessage: submitMessage,
+    submitBinaryChunk: submitBinaryChunk,
+    get statusOwner() { return statusOwner; },
+    get statusReceiver() { return statusReceiver; },
+    peersCount: peersCount,
+    setDataChannelMessageHandler: (handler) => {
+      dataChannelMessageHandler = handler;
     }
   }
 
