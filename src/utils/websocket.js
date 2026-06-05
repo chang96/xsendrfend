@@ -1,4 +1,4 @@
-import React, { createContext } from 'react'
+import React, { createContext, useState } from 'react'
 import { useDispatch } from 'react-redux';
 import openSocket from "socket.io-client";
 import {
@@ -15,6 +15,7 @@ const WebSocketContext = createContext(null)
 export { WebSocketContext }
 
 export default ({ children }) => {
+  const [peersCount, setPeersCount] = useState(0);
   let socket;
   let ws;
   let statusOwner;
@@ -61,11 +62,18 @@ export default ({ children }) => {
     socket.on("disconnect", () => {
       console.log("Socket.io disconnected!");
       dispatch(connectionEstablished(false));
+      setPeersCount(0);
     });
 
     socket.on("connect_error", (error) => {
       console.error("Socket.io connection error:", error);
       dispatch(connectionEstablished(false));
+      setPeersCount(0);
+    });
+
+    socket.on("room-members-count", (data) => {
+      console.log("Room members count updated:", data.count);
+      setPeersCount(Math.max(0, data.count - 1));
     });
 
     socket.on("newRoomis", (msg) => {
@@ -123,6 +131,7 @@ export default ({ children }) => {
       submitBinaryChunk: submitBinaryChunk,
       get statusOwner() { return statusOwner; },
       get statusReceiver() { return statusReceiver; },
+      get peersCount() { return peersCount; },
       setDataChannelMessageHandler: (handler) => {
         dataChannelMessageHandler = handler;
       }

@@ -2,9 +2,13 @@ import {useRef} from "react"
 import {connect} from "react-redux"
 import {newMessageAction, completion, setUpQueue} from "../../action/index"
 
-function Attachment({name, color, height, width, onChange, cN, sendMessage, msg, userType, roomName, percentageIncrease, setQueue, noteId}){
+function Attachment({name, color, height, width, onChange, cN, sendMessage, msg, userType, roomName, percentageIncrease, setQueue, noteId, peersCount, triggerNoDeviceAlert}){
     const inputFile = useRef(null)
     const handleClick = ()=>{
+        if (peersCount === 0) {
+            if (triggerNoDeviceAlert) triggerNoDeviceAlert();
+            return;
+        }
         inputFile.current.click()
     }
     const handleChange = (e)=>{

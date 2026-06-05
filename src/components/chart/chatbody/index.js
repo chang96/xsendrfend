@@ -23,8 +23,35 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
     const { 
         socket, 
         setDataChannelMessageHandler,
-        submitBinaryChunk
+        submitBinaryChunk,
+        peersCount
     } = useContext(WebSocketContext);
+
+    const [shouldShake, setShouldShake] = useState(false);
+    const [notification, setNotification] = useState(null);
+    const notificationTimeoutRef = useRef(null);
+
+    const triggerNoDeviceAlert = () => {
+        setShouldShake(true);
+        setTimeout(() => setShouldShake(false), 400);
+
+        setNotification("Connect another device to this room to start transferring.");
+
+        if (notificationTimeoutRef.current) {
+            clearTimeout(notificationTimeoutRef.current);
+        }
+        notificationTimeoutRef.current = setTimeout(() => {
+            setNotification(null);
+        }, 5000);
+    };
+
+    useEffect(() => {
+        return () => {
+            if (notificationTimeoutRef.current) {
+                clearTimeout(notificationTimeoutRef.current);
+            }
+        };
+    }, []);
 
     // Heartbeat Timeout Checker for Sender
     const resetHeartbeat = (fileId) => {
@@ -435,6 +462,10 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
     };
 
     const handleClick = (message) => {
+        if (peersCount === 0) {
+            triggerNoDeviceAlert();
+            return;
+        }
         const file = window.fileMap ? window.fileMap[message.fileId] : null;
         if (!file) {
             console.error("File not found in local window cache map.");
@@ -607,6 +638,9 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
 
     // Collaborative Note Creators & Synchronizers
     const handleCreateNote = () => {
+        if (peersCount === 0) {
+            triggerNoDeviceAlert();
+        }
         const newNoteId = "note_" + Math.random().toString(36).substring(2, 9);
         
         // Add note card locally
@@ -624,6 +658,9 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
     };
 
     const handleNoteTextChange = (noteId, e) => {
+        if (peersCount === 0) {
+            triggerNoDeviceAlert();
+        }
         const newText = e.target.value;
         
         // Update locally
@@ -697,17 +734,40 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
 
     return (
         <div
-            className="flex-1 flex flex-col justify-between min-h-0 w-full max-w-md mx-auto bg-[#121212]"
+            className="flex-1 flex flex-col justify-between min-h-0 w-full max-w-md mx-auto bg-[#121212] relative"
             style={{ borderRight: "1px solid #1f1f1f", borderLeft: "1px solid #1f1f1f" }}
         >
             {/* Header with Minimalist Notes/Chat Switcher Icons */}
             <div className="bg-[#1b1b1b] border-b border-[#252525] px-4 py-2.5 flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                    <span className="h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse"></span>
+                <div className={`flex items-center space-x-2 transition-all duration-300 ${shouldShake ? 'animate-shake' : ''}`}>
+                    <span className={`h-2.5 w-2.5 rounded-full transition-all duration-300 ${peersCount > 0 ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></span>
                     <span className="text-gray-400 text-[10px] font-bold px-2 py-0.5 rounded bg-[#242424] select-all">
                         {roomName.name}
                     </span>
+                    <span className={`text-[10px] font-semibold transition-all duration-300 ${peersCount > 0 ? 'text-gray-400' : 'text-red-400'}`}>
+                        {peersCount} {peersCount === 1 ? 'device' : 'devices'} connected
+                    </span>
                 </div>
+
+                {/* Alert Notification Banner */}
+                {notification && (
+                    <div className="absolute top-[48px] left-4 right-4 bg-red-500/10 border border-red-500/30 rounded-xl p-3 backdrop-blur-md z-30 flex items-center justify-between shadow-lg transition-all duration-300">
+                        <div className="flex items-center space-x-2 text-left">
+                            <svg className="w-4.5 h-4.5 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <span className="text-red-200 text-[10px] font-medium leading-relaxed">
+                                {notification}
+                            </span>
+                        </div>
+                        <button 
+                            onClick={() => setNotification(null)}
+                            className="text-red-400 hover:text-white text-[10px] ml-2 font-bold cursor-pointer"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                )}
 
                 {/* Header view mode toggler (Icons Only) */}
                 <div className="flex bg-[#121212] p-0.5 rounded-lg border border-[#2b2b2b]">
@@ -778,7 +838,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                                             <div className="flex items-center space-x-2.5">
                                                 {/* File Attachment Button inside specific note */}
                                                 <div className="text-gray-400 hover:text-white transition-colors duration-150">
-                                                    <Attachment noteId={note.id} />
+                                                    <Attachment noteId={note.id} peersCount={peersCount} triggerNoDeviceAlert={triggerNoDeviceAlert} />
                                                 </div>
                                                 
                                                 {/* Delete Button */}
@@ -1023,15 +1083,24 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                     <div className="flex items-center space-x-2 w-full bg-[#1a1a1a] border border-[#2b2b2b] rounded-full px-3 py-1.5 focus-within:border-[#001AFF] transition-all duration-150 shadow-inner">
                         {/* Dummy attachment trigger for standard room chat */}
                         <div className="flex-shrink-0 flex items-center justify-center text-gray-400 hover:text-white transition-colors duration-150">
-                            <Attachment />
+                            <Attachment peersCount={peersCount} triggerNoDeviceAlert={triggerNoDeviceAlert} />
                         </div>
 
                         <input 
                             type="text" 
                             value={composerText}
-                            onChange={(e) => setComposerText(e.target.value)}
+                            onChange={(e) => {
+                                setComposerText(e.target.value);
+                                if (peersCount === 0 && e.target.value.length > 0) {
+                                    triggerNoDeviceAlert();
+                                }
+                            }}
                             onKeyDown={(e) => {
                                 if (e.key === "Enter") {
+                                    if (peersCount === 0) {
+                                        triggerNoDeviceAlert();
+                                        return;
+                                    }
                                     // Send standard chat message
                                     if (!composerText.trim()) return;
                                     newMessageDispatch({ type: "guest", message: composerText });
@@ -1051,6 +1120,10 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
 
                         <button 
                             onClick={() => {
+                                if (peersCount === 0) {
+                                    triggerNoDeviceAlert();
+                                    return;
+                                }
                                 if (!composerText.trim()) return;
                                 newMessageDispatch({ type: "guest", message: composerText });
                                 socket.emit("messageFromClient", {
