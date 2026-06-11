@@ -1,4 +1,4 @@
-import React, { createContext, useState } from 'react'
+import React, { createContext, useState, useEffect } from 'react'
 import { useDispatch } from 'react-redux';
 import openSocket from "socket.io-client";
 import {
@@ -22,6 +22,7 @@ let dataChannelMessageHandler = null;
 
 export default ({ children }) => {
   const [peersCount, setPeersCount] = useState(0);
+  const [latency, setLatency] = useState(0);
   const dispatch = useDispatch();
 
   const sendMessage = (roomId, message) => {}
@@ -122,6 +123,45 @@ export default ({ children }) => {
     console.log("Socket initialized");
   }
 
+  useEffect(() => {
+    if (!socket) return;
+
+    let pingInterval;
+    let pingStart;
+
+    const performPing = () => {
+      pingStart = Date.now();
+      socket.emit("ping-server");
+    };
+
+    socket.on("pong-client", () => {
+      const duration = Date.now() - pingStart;
+      setLatency(duration);
+    });
+
+    socket.on("connect", () => {
+      performPing();
+      pingInterval = setInterval(performPing, 10000);
+    });
+
+    socket.on("disconnect", () => {
+      clearInterval(pingInterval);
+      setLatency(0);
+    });
+
+    if (socket.connected) {
+      performPing();
+      pingInterval = setInterval(performPing, 10000);
+    }
+
+    return () => {
+      clearInterval(pingInterval);
+      if (socket) {
+        socket.off("pong-client");
+      }
+    };
+  }, [socket]);
+
   const ws = {
     socket: socket,
     sendMessage: sendMessage,
@@ -132,6 +172,7 @@ export default ({ children }) => {
     get statusOwner() { return statusOwner; },
     get statusReceiver() { return statusReceiver; },
     peersCount: peersCount,
+    latency: latency,
     setDataChannelMessageHandler: (handler) => {
       dataChannelMessageHandler = handler;
     }

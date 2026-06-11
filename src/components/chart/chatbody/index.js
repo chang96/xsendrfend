@@ -24,12 +24,14 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
         socket, 
         setDataChannelMessageHandler,
         submitBinaryChunk,
-        peersCount
+        peersCount,
+        latency
     } = useContext(WebSocketContext);
 
     const [shouldShake, setShouldShake] = useState(false);
     const [notification, setNotification] = useState(null);
     const notificationTimeoutRef = useRef(null);
+    const prevBytesRef = useRef({});
 
     const triggerNoDeviceAlert = () => {
         setShouldShake(true);
@@ -65,6 +67,73 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                 clearTimeout(notificationTimeoutRef.current);
             }
         };
+    }, []);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setTransfers(prev => {
+                let hasChanges = false;
+                const next = { ...prev };
+
+                Object.keys(next).forEach(fileId => {
+                    const transfer = next[fileId];
+                    if (!transfer) return;
+
+                    if (transfer.status === "sending") {
+                        const session = window.activeSenderSessions ? window.activeSenderSessions[fileId] : null;
+                        if (session) {
+                            const currentBytes = Math.min(session.file.size, session.nextChunkIndex * session.chunkSize);
+                            const prevBytes = prevBytesRef.current[fileId] || 0;
+                            const delta = Math.max(0, currentBytes - prevBytes);
+                            
+                            prevBytesRef.current[fileId] = currentBytes;
+                            const speedText = formatBytes(delta) + "/s";
+                            
+                            if (transfer.speed !== speedText) {
+                                next[fileId] = {
+                                    ...transfer,
+                                    speed: speedText
+                                };
+                                hasChanges = true;
+                            }
+                        }
+                    } else if (transfer.status === "receiving") {
+                        const fileStore = window.incomingFiles ? window.incomingFiles[fileId] : null;
+                        if (fileStore) {
+                            const currentBytes = fileStore.receivedBytes;
+                            const prevBytes = prevBytesRef.current[fileId] || 0;
+                            const delta = Math.max(0, currentBytes - prevBytes);
+                            
+                            prevBytesRef.current[fileId] = currentBytes;
+                            const speedText = formatBytes(delta) + "/s";
+                            
+                            if (transfer.speed !== speedText) {
+                                next[fileId] = {
+                                    ...transfer,
+                                    speed: speedText
+                                };
+                                hasChanges = true;
+                            }
+                        }
+                    } else {
+                        if (transfer.speed) {
+                            next[fileId] = {
+                                ...transfer,
+                                speed: null
+                            };
+                            hasChanges = true;
+                        }
+                        if (prevBytesRef.current[fileId] !== undefined) {
+                            delete prevBytesRef.current[fileId];
+                        }
+                    }
+                });
+
+                return hasChanges ? next : prev;
+            });
+        }, 1000);
+
+        return () => clearInterval(interval);
     }, []);
 
     // Heartbeat Timeout Checker for Sender
@@ -774,6 +843,11 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                     <span className={`text-[10px] font-semibold transition-all duration-300 ${peersCount > 0 ? 'text-gray-400' : 'text-red-400'}`}>
                         {peersCount} {peersCount === 1 ? 'device' : 'devices'} connected
                     </span>
+                    <span className={`text-[10px] font-semibold transition-all duration-300 ${
+                        latency > 250 ? 'text-[#ff3b30]' : latency > 150 ? 'text-[#ffcc00]' : 'text-gray-400'
+                    }`}>
+                        &nbsp;&bull; {latency > 0 ? `${latency}ms` : '-- ms'}
+                    </span>
                 </div>
 
                 {/* Alert Notification Toast */}
@@ -990,9 +1064,9 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                                                                     <div className="flex justify-between items-center mt-1 text-[8px] text-[#777777]">
                                                                         <span>
                                                                             {transfer.status === "sending" 
-                                                                                ? "Streaming..." 
+                                                                                ? `Streaming... ${transfer.speed ? `(${transfer.speed})` : ''}` 
                                                                                 : transfer.status === "receiving" 
-                                                                                ? "Receiving..." 
+                                                                                ? `Receiving... ${transfer.speed ? `(${transfer.speed})` : ''}` 
                                                                                 : transfer.status === "paused"
                                                                                 ? "Paused"
                                                                                 : transfer.status === "retrying"
@@ -1113,9 +1187,9 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                                                     <div className="flex justify-between items-center mt-1 text-[8px] text-[#777777]">
                                                         <span>
                                                             {transfer.status === "sending" 
-                                                                ? "Streaming..." 
+                                                                ? `Streaming... ${transfer.speed ? `(${transfer.speed})` : ''}` 
                                                                 : transfer.status === "receiving" 
-                                                                ? "Receiving..." 
+                                                                ? `Receiving... ${transfer.speed ? `(${transfer.speed})` : ''}` 
                                                                 : transfer.status === "paused"
                                                                 ? "Paused"
                                                                 : transfer.status === "retrying"
@@ -1126,7 +1200,6 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                                                     </div>
                                                 </div>
                                             )}
-
                                             {/* Action controls */}
                                             <div className="mt-2 flex justify-end space-x-1.5">
                                                 {/* Send button for the uploading user */}
