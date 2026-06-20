@@ -33,6 +33,15 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
     const notificationTimeoutRef = useRef(null);
     const prevBytesRef = useRef({});
 
+    const [screenActive, setScreenActive] = useState(false);
+    const [screenSender, setScreenSender] = useState(false);
+    const [screenFrame, setScreenFrame] = useState(null);
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    const screenStreamRef = useRef(null);
+    const screenIntervalRef = useRef(null);
+    const screenTimeoutRef = useRef(null);
+    const screenContainerRef = useRef(null);
+
     const triggerNoDeviceAlert = () => {
         setShouldShake(true);
         setTimeout(() => setShouldShake(false), 400);
@@ -134,6 +143,114 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
         }, 1000);
 
         return () => clearInterval(interval);
+    }, []);
+
+    const startScreenShare = async () => {
+        try {
+            if (peersCount === 0) {
+                triggerNoDeviceAlert();
+                return;
+            }
+            const stream = await navigator.mediaDevices.getDisplayMedia({
+                video: {
+                    width: { ideal: 800 },
+                    height: { ideal: 600 },
+                    frameRate: { ideal: 5 }
+                },
+                audio: false
+            });
+
+            screenStreamRef.current = stream;
+            setScreenSender(true);
+            setScreenActive(true);
+
+            const video = document.createElement("video");
+            video.srcObject = stream;
+            video.play();
+
+            const canvas = document.createElement("canvas");
+            canvas.width = 800;
+            canvas.height = 600;
+            const ctx = canvas.getContext("2d");
+
+            stream.getVideoTracks()[0].onended = () => {
+                stopScreenShare();
+            };
+
+            screenIntervalRef.current = setInterval(() => {
+                if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    const frameData = canvas.toDataURL("image/jpeg", 0.4);
+                    
+                    socket.emit("messageFromClient", {
+                        roomName: roomName.name,
+                        xtype: "screen-frame",
+                        frame: frameData
+                    });
+
+                    setScreenFrame(frameData);
+                }
+            }, 300);
+        } catch (error) {
+            console.error("Error accessing screen capture:", error);
+            stopScreenShare();
+        }
+    };
+
+    const stopScreenShare = () => {
+        if (screenIntervalRef.current) {
+            clearInterval(screenIntervalRef.current);
+            screenIntervalRef.current = null;
+        }
+        if (screenStreamRef.current) {
+            screenStreamRef.current.getTracks().forEach(track => track.stop());
+            screenStreamRef.current = null;
+        }
+        setScreenSender(false);
+        setScreenActive(false);
+        setScreenFrame(null);
+
+        socket.emit("messageFromClient", {
+            roomName: roomName.name,
+            xtype: "screen-stop"
+        });
+    };
+
+    const handleFullScreenToggle = () => {
+        if (!screenContainerRef.current) return;
+        if (!document.fullscreenElement) {
+            screenContainerRef.current.requestFullscreen().then(() => {
+                setIsFullscreen(true);
+            }).catch(err => {
+                console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+            });
+        } else {
+            document.exitFullscreen();
+        }
+    };
+
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            setIsFullscreen(!!document.fullscreenElement);
+        };
+        document.addEventListener("fullscreenchange", handleFullscreenChange);
+        return () => {
+            document.removeEventListener("fullscreenchange", handleFullscreenChange);
+        };
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            if (screenIntervalRef.current) {
+                clearInterval(screenIntervalRef.current);
+            }
+            if (screenTimeoutRef.current) {
+                clearTimeout(screenTimeoutRef.current);
+            }
+            if (screenStreamRef.current) {
+                screenStreamRef.current.getTracks().forEach(track => track.stop());
+            }
+        };
     }, []);
 
     // Heartbeat Timeout Checker for Sender
@@ -278,6 +395,41 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                 handleIncomingFileMeta(data);
             } else if (data.xtype === "file-done") {
                 handleIncomingFileDone(data);
+            } else if (data.xtype === "screen-frame") {
+                setScreenActive(true);
+                setScreenFrame(data.frame);
+                
+                // Show toast warning if screen sharing started and user is not on screen view mode
+                setViewMode(currentView => {
+                    if (currentView !== "screen") {
+                        setNotification("Screen share started. Tap the screen icon above to watch.");
+                        if (notificationTimeoutRef.current) {
+                            clearTimeout(notificationTimeoutRef.current);
+                        }
+                        notificationTimeoutRef.current = setTimeout(() => {
+                            setNotification(null);
+                        }, 5000);
+                    }
+                    return currentView;
+                });
+
+                if (screenTimeoutRef.current) {
+                    clearTimeout(screenTimeoutRef.current);
+                }
+                screenTimeoutRef.current = setTimeout(() => {
+                    setScreenActive(false);
+                    setScreenFrame(null);
+                }, 3000);
+            } else if (data.xtype === "screen-stop") {
+                setScreenActive(false);
+                setScreenFrame(null);
+                setNotification("Screen share ended.");
+                if (notificationTimeoutRef.current) {
+                    clearTimeout(notificationTimeoutRef.current);
+                }
+                notificationTimeoutRef.current = setTimeout(() => {
+                    setNotification(null);
+                }, 3000);
             } else if (data.xtype !== 'file') {
                 newMessageDispatch({
                     type: "owner",
@@ -876,6 +1028,19 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                         </svg>
                     </button>
                     <button
+                        onClick={() => setViewMode("screen")}
+                        title="Screen Share"
+                        className={`p-1.5 rounded transition-all duration-150 flex items-center justify-center ${
+                            viewMode === "screen"
+                                ? "bg-[#001AFF] text-white shadow-md"
+                                : "text-gray-500 hover:text-white bg-transparent"
+                        }`}
+                    >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                    </button>
+                    <button
                         onClick={() => setViewMode("chat")}
                         title="Room Chat"
                         className={`p-1.5 rounded transition-all duration-150 flex items-center justify-center ${
@@ -901,6 +1066,9 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                     <div className="space-y-2 text-[10px] text-gray-400">
                         <div>
                             <span className="font-bold text-white">📝 Notes:</span> Type text or upload files inside collaborative note cards that sync character-by-character in real-time.
+                        </div>
+                        <div>
+                            <span className="font-bold text-white">🖥 Screen:</span> Share your screen real-time or watch presentations from other devices.
                         </div>
                         <div>
                             <span className="font-bold text-white">💬 Chat:</span> Send standard messages and transfer files directly inside a rolling room timeline.
@@ -1135,6 +1303,94 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                         })
                     )}
                 </div>
+            ) : viewMode === "screen" ? (
+                /* SCREEN SHARE MODE: Live screen presenter display */
+                <div className="flex-1 flex flex-col items-center justify-center p-6 text-center overflow-y-auto min-h-0 bg-[#121212] relative">
+                    {screenActive ? (
+                        <div className="w-full h-full flex flex-col justify-between space-y-3">
+                            <div className="flex justify-between items-center bg-[#1b1b1b] border border-[#252525] px-3 py-1.5 rounded-xl">
+                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center space-x-1.5">
+                                    <span className="h-2 w-2 rounded-full bg-green-500 animate-ping"></span>
+                                    <span>{screenSender ? "You are presenting" : "Live Presentation"}</span>
+                                </span>
+                                <div className="flex items-center space-x-2">
+                                    <button
+                                        onClick={handleFullScreenToggle}
+                                        title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                                        className="p-1 rounded bg-[#252525] hover:bg-[#323232] text-gray-400 hover:text-white transition-all cursor-pointer"
+                                    >
+                                        {isFullscreen ? (
+                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 9L4.5 4.5M9 9V4.5M9 9H4.5M15 9l4.5-4.5M15 9V4.5M15 9h4.5M9 15l-4.5 4.5M9 15v4.5M9 15H4.5M15 15l4.5 4.5M15 15v4.5M15 15h4.5" />
+                                            </svg>
+                                        ) : (
+                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9M20.25 20.25v-4.5m0 4.5h-4.5m4.5 0L15 15" />
+                                            </svg>
+                                        )}
+                                    </button>
+                                    {screenSender && (
+                                        <button
+                                            onClick={stopScreenShare}
+                                            className="text-[9px] font-semibold px-2 py-0.5 rounded bg-red-600 hover:bg-red-700 text-white transition-all cursor-pointer"
+                                        >
+                                            Stop Share
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                            <div 
+                                ref={screenContainerRef}
+                                className="flex-1 relative w-full rounded-2xl border border-[#2b2b2b] bg-black overflow-hidden flex items-center justify-center shadow-inner"
+                            >
+                                {screenFrame ? (
+                                    <img
+                                        src={screenFrame}
+                                        alt="Screen Share Frame"
+                                        className="max-w-full max-h-full object-contain"
+                                    />
+                                ) : (
+                                    <div className="text-gray-500 text-[10px]">Connecting stream...</div>
+                                )}
+
+                                {isFullscreen && (
+                                    <button
+                                        onClick={handleFullScreenToggle}
+                                        className="absolute top-4 right-4 p-2 rounded-full bg-black/60 hover:bg-black/80 text-white backdrop-blur-md transition-all cursor-pointer"
+                                        title="Exit Fullscreen"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 9L4.5 4.5M9 9V4.5M9 9H4.5M15 9l4.5-4.5M15 9V4.5M15 9h4.5M9 15l-4.5 4.5M9 15v4.5M9 15H4.5M15 15l4.5 4.5M15 15v4.5M15 15h4.5" />
+                                        </svg>
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="bg-[#1E1E1E] rounded-2xl p-6 border border-[#2b2b2b] shadow-lg max-w-xs w-full flex flex-col items-center justify-center space-y-4">
+                            <div className="p-4 bg-[#121212] rounded-full text-gray-500">
+                                <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 className="text-gray-400 text-xs font-semibold tracking-wider uppercase">Screen Share</h3>
+                                <p className="text-gray-600 text-[10px] mt-1 leading-relaxed">
+                                    Broadcast your screen real-time to other devices in this room. Work together in slides, code, or documents.
+                                </p>
+                            </div>
+                            <button
+                                onClick={startScreenShare}
+                                className="w-full text-[10px] font-bold py-2 px-4 rounded-xl text-white bg-[#001AFF] hover:bg-blue-700 shadow-md transition-all cursor-pointer flex items-center justify-center space-x-1.5"
+                            >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                                <span>Start Screen Share</span>
+                            </button>
+                        </div>
+                    )}
+                </div>
             ) : (
                 /* CHAT MODE: Standard Chat Bubbles log (Fallback Room Chat) */
                 <div
@@ -1283,6 +1539,9 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                         <span>Create Note</span>
                     </button>
                 </div>
+            ) : viewMode === "screen" ? (
+                /* SCREEN SHARE COMPOSER: None */
+                null
             ) : (
                 /* CHAT COMPOSER: Standard input bar */
                 <div className="bg-[#121212] border-t border-[#1f1f1f] px-3 py-3 flex-shrink-0">
