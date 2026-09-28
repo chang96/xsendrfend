@@ -131,8 +131,9 @@ const connectionEstablishedReducer = function (state, action){
 const setUpQueueReducer = function(state, action){
     switch(action.type){
         case NEWQUEUE:
+            // Append so a second batch (e.g. another drop) doesn't wipe files still waiting
             return {
-                queued: [...action.payload]
+                queued: [...((state && state.queued) || []), ...action.payload]
             }
         default:
             return {

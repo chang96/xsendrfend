@@ -2,7 +2,8 @@ import Attachment from "../../../elements/attachment/attachment";
 import "./index.css"
 import { connect } from "react-redux"
 import { WebSocketContext } from "../../../utils/websocket"
-import { newMessageAction, completion } from "../../../action/index"
+import { newMessageAction, completion, setUpQueue } from "../../../action/index"
+import { buildFileMetadata } from "../../../utils/fileQueue"
 import { useState, useContext, useEffect, useRef } from 'react'
 
 const formatBytes = (bytes, decimals = 2) => {
@@ -14,7 +15,7 @@ const formatBytes = (bytes, decimals = 2) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 };
 
-function ChartBody({messageFromServr, completion, sendMessage, userType, roomName, percentageIncrease, newMessageDispatch, queued}){
+function ChartBody({messageFromServr, completion, sendMessage, userType, roomName, percentageIncrease, newMessageDispatch, queued, setQueue}){
     const [transfers, setTransfers] = useState({});
     const [viewMode, setViewMode] = useState("chat"); // "chat" (default) or "notes"
     const [notes, setNotes] = useState([]); // Collaborative note stack array
@@ -54,6 +55,75 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
         notificationTimeoutRef.current = setTimeout(() => {
             setNotification(null);
         }, 3000);
+    };
+
+    // ---- Drag & drop file sending ----
+    const [isDragging, setIsDragging] = useState(false);
+    const [dragNoteId, setDragNoteId] = useState(null);
+    const dragCounterRef = useRef(0);
+
+    const isFileDrag = (e) => {
+        const types = e.dataTransfer && e.dataTransfer.types;
+        return !!types && Array.prototype.indexOf.call(types, "Files") !== -1;
+    };
+
+    const noteIdFromEvent = (e) => {
+        const el = e.target && e.target.closest ? e.target.closest("[data-note-id]") : null;
+        return el ? el.getAttribute("data-note-id") : null;
+    };
+
+    const handleDragEnter = (e) => {
+        if (!isFileDrag(e) || viewMode === "screen") return;
+        e.preventDefault();
+        dragCounterRef.current += 1;
+        setIsDragging(true);
+    };
+
+    const handleDragOver = (e) => {
+        if (!isFileDrag(e) || viewMode === "screen") return;
+        e.preventDefault(); // required so the browser allows the drop
+        e.dataTransfer.dropEffect = "copy";
+        if (viewMode === "notes") {
+            const id = noteIdFromEvent(e);
+            if (id !== dragNoteId) setDragNoteId(id);
+        }
+    };
+
+    const handleDragLeave = (e) => {
+        if (!isFileDrag(e) || viewMode === "screen") return;
+        dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
+        if (dragCounterRef.current === 0) {
+            setIsDragging(false);
+            setDragNoteId(null);
+        }
+    };
+
+    const handleDrop = (e) => {
+        if (!isFileDrag(e) || viewMode === "screen") return;
+        e.preventDefault();
+        dragCounterRef.current = 0;
+        setIsDragging(false);
+        setDragNoteId(null);
+
+        const files = e.dataTransfer.files;
+        if (!files || files.length === 0) return;
+
+        if (peersCount === 0) {
+            triggerNoDeviceAlert();
+        }
+
+        // Notes view: attach to the card it was dropped on, else the newest note.
+        // Chat view: no noteId -> goes into the room chat timeline.
+        let noteId;
+        if (viewMode === "notes") {
+            noteId = noteIdFromEvent(e) || (notes.length > 0 ? notes[notes.length - 1].id : "default");
+        }
+
+        const metadataList = buildFileMetadata(files, noteId);
+        if (metadataList.length === 0) return;
+
+        setQueue(metadataList);
+        sendMessage({ type: "guest", message: metadataList, niFile: true, noteId: noteId });
     };
 
     const [showOnboarding, setShowOnboarding] = useState(false);
@@ -984,7 +1054,27 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
         <div
             className="flex-1 flex flex-col justify-between min-h-0 w-full max-w-md mx-auto bg-[#121212] relative"
             style={{ borderRight: "1px solid #1f1f1f", borderLeft: "1px solid #1f1f1f" }}
+            onDragEnter={handleDragEnter}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
         >
+            {/* Drag & drop overlay (pointer-events-none so drop targets underneath still resolve) */}
+            {isDragging && (
+                <div className="absolute inset-0 z-50 pointer-events-none flex items-center justify-center bg-[#001AFF]/10 border-2 border-dashed border-[#001AFF] rounded-sm">
+                    <div className="bg-[#1b1b1b]/95 border border-[#2b2b2b] rounded-xl px-4 py-3 text-center shadow-2xl">
+                        <svg className="w-6 h-6 mx-auto mb-1.5 text-[#4d63ff]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                        </svg>
+                        <p className="text-white text-xs font-semibold">Drop files to send</p>
+                        <p className="text-gray-500 text-[10px] mt-0.5">
+                            {viewMode === "notes"
+                                ? (dragNoteId ? "Attaching to this note" : "Attaching to the newest note")
+                                : "Sending to room chat"}
+                        </p>
+                    </div>
+                </div>
+            )}
             {/* Header with Minimalist Notes/Chat Switcher Icons */}
             <div className="bg-[#1b1b1b] border-b border-[#252525] px-4 py-2.5 flex items-center justify-between">
                 <div className={`flex items-center space-x-2 transition-all duration-300 ${shouldShake ? 'animate-shake' : ''}`}>
@@ -1110,8 +1200,8 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                             const codeMatch = isCode(note.text);
 
                             return (
-                                <div key={note.id} className="w-full">
-                                    <div className="bg-[#1E1E1E] rounded-2xl p-4 border border-[#2b2b2b] hover:border-[#001AFF]/30 shadow-lg text-left transition-all duration-200 flex flex-col space-y-3">
+                                <div key={note.id} className="w-full" data-note-id={note.id}>
+                                    <div className={`bg-[#1E1E1E] rounded-2xl p-4 border ${isDragging && dragNoteId === note.id ? "border-[#001AFF] ring-2 ring-[#001AFF]/40" : "border-[#2b2b2b]"} hover:border-[#001AFF]/30 shadow-lg text-left transition-all duration-200 flex flex-col space-y-3`}>
                                         
                                         {/* Card Header */}
                                         <div className="flex justify-between items-center border-b border-[#252527] pb-2">
@@ -1625,6 +1715,7 @@ const mapDispatchToProps = dispatch => {
     return {
         sendMessage: (payload)=> dispatch(newMessageAction(payload)),
         percentageIncrease: (payload)=> dispatch(completion(payload)),
+        setQueue: (payload)=> dispatch(setUpQueue(payload)),
         newMessageDispatch: (payload, storedData=undefined)=> {
              if(storedData){
                  return dispatch(newMessageAction({...payload, message: storedData})) 

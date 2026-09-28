@@ -1,6 +1,7 @@
 import {useRef} from "react"
 import {connect} from "react-redux"
 import {newMessageAction, completion, setUpQueue} from "../../action/index"
+import {buildFileMetadata} from "../../utils/fileQueue"
 
 function Attachment({name, color, height, width, onChange, cN, sendMessage, msg, userType, roomName, percentageIncrease, setQueue, noteId, peersCount, triggerNoDeviceAlert}){
     const inputFile = useRef(null)
@@ -14,21 +15,10 @@ function Attachment({name, color, height, width, onChange, cN, sendMessage, msg,
        const {files} = e.target
        if (!files || files.length === 0) return;
 
-       const metadataList = []
-       window.fileMap = window.fileMap || {}
-
-       for(let i = 0; i < files.length; i++){
-        const file = files.item(i)
-        const fileId = "file--" + (noteId || "default") + "--" + Math.random().toString(36).substring(2, 9)
-        window.fileMap[fileId] = file
-        metadataList.push({
-          name: file.name,
-          size: file.size,
-          type: file.type,
-          fileId: fileId,
-          noteId: noteId
-        })
-       }
+       const metadataList = buildFileMetadata(files, noteId)
+       // Reset so picking the same file(s) again still fires onChange
+       e.target.value = ""
+       if (metadataList.length === 0) return;
 
        setQueue(metadataList)
        sendMessage({type: 'guest', message: metadataList, niFile: true, noteId: noteId})
@@ -51,6 +41,7 @@ function Attachment({name, color, height, width, onChange, cN, sendMessage, msg,
                 type="file" 
                 ref={inputFile} 
                 name="file" 
+                multiple
                 style={{ display: "none" }} 
                 onChange={handleChange} 
             />
