@@ -4,6 +4,8 @@ import { connect } from "react-redux"
 import { WebSocketContext } from "../../../utils/websocket"
 import { newMessageAction, completion, setUpQueue } from "../../../action/index"
 import { buildFileMetadata } from "../../../utils/fileQueue"
+import RoomMenu from "../../alias/RoomMenu"
+import KnockPrompt from "../../alias/KnockPrompt"
 import { useState, useContext, useEffect, useRef } from 'react'
 
 const formatBytes = (bytes, decimals = 2) => {
@@ -1079,9 +1081,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
             <div className="bg-[#1b1b1b] border-b border-[#252525] px-4 py-2.5 flex items-center justify-between">
                 <div className={`flex items-center space-x-2 transition-all duration-300 ${shouldShake ? 'animate-shake' : ''}`}>
                     <span className={`h-2.5 w-2.5 rounded-full transition-all duration-300 ${peersCount > 0 ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></span>
-                    <span className="text-gray-400 text-[10px] font-bold px-2 py-0.5 rounded bg-[#242424] select-all">
-                        {roomName.name}
-                    </span>
+                    <RoomMenu roomName={roomName.name} />
                     <span className={`text-[10px] font-semibold transition-all duration-300 ${peersCount > 0 ? 'text-gray-400' : 'text-red-400'}`}>
                         {peersCount} {peersCount === 1 ? 'device' : 'devices'} connected
                     </span>
@@ -1101,6 +1101,9 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                         <span className="whitespace-nowrap">{notification}</span>
                     </div>
                 )}
+
+                {/* Owner-side "someone wants to join" prompt for alias rooms */}
+                <KnockPrompt />
 
                 {/* Header view mode toggler (Icons Only) */}
                 <div className="flex bg-[#121212] p-0.5 rounded-lg border border-[#2b2b2b]">
