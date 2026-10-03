@@ -9,6 +9,7 @@ import {
   connecting
 } from "../action/index"
 import { saveGuestPass, removeOwnership, setLastAlias } from "./ownership"
+import { initTasks, getTasksState, applyRemote } from "./tasksStore"
 
 const ENDPOINT = process.env.REACT_APP_SOCKET_URL || "https://faax.sandymoon.com.ng"
 const WebSocketContext = createContext(null)
@@ -23,6 +24,12 @@ let dataChannelMessageHandler = null;
 // How to get back into an alias room after a reconnect:
 // { type: "owner", alias, deviceId, key } | { type: "guest", alias, guestPass }
 let currentAuth = null;
+
+// Owner devices share their task list (server only relays, never stores)
+function startTasksSync(alias) {
+  initTasks(alias, (state) => socket.emit("tasks:sync", { state }));
+  socket.emit("tasks:hello", { state: getTasksState() });
+}
 
 export default ({ children }) => {
   const [peersCount, setPeersCount] = useState(0);
@@ -72,6 +79,7 @@ export default ({ children }) => {
       currentAuth = { type: "owner", alias: res.alias, deviceId: creds.deviceId, key: creds.key };
       setLastAlias(res.alias);
       setAliasSession({ alias: res.alias, role: "owner", deviceId: creds.deviceId });
+      startTasksSync(res.alias);
       enterRoom(res.room, "owner");
     }
     return res;
@@ -113,6 +121,7 @@ export default ({ children }) => {
       if (currentAuth && currentAuth.type === "owner") {
         socket.emit("alias:enter", { alias: currentAuth.alias, deviceId: currentAuth.deviceId, key: currentAuth.key }, (res) => {
           if (!res || !res.ok) console.warn("Could not re-enter alias room as owner:", res);
+          else startTasksSync(currentAuth.alias);
         });
       } else if (currentAuth && currentAuth.type === "guest") {
         socket.emit("alias:rejoin", { alias: currentAuth.alias, guestPass: currentAuth.guestPass }, (res) => {
@@ -186,6 +195,15 @@ export default ({ children }) => {
       removeOwnership(data.alias);
       currentAuth = null;
       window.location.replace("/" + data.alias + "?removed=1");
+    });
+
+    // Another owner device opened the room: merge its list and answer with ours if it's missing anything
+    socket.on("tasks:hello", (data) => {
+      const theyMissSomething = applyRemote(data && data.state);
+      if (theyMissSomething) socket.emit("tasks:sync", { state: getTasksState() });
+    });
+    socket.on("tasks:sync", (data) => {
+      applyRemote(data && data.state);
     });
 
     // Typed an alias into the "join room code" box
