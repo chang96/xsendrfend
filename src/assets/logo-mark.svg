@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="138 108 256 328" width="40" height="51" role="img" aria-label="faax">
+  <defs><linearGradient id="faax-ar" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#ff5b00"/><stop offset="1" stop-color="#ffa057"/></linearGradient></defs>
+  <path d="M176 384 V146 H332 M176 252 H296" fill="none" stroke="#ffffff" stroke-width="60" stroke-linecap="round" stroke-linejoin="round"/>
+  <g fill="none" stroke="url(#faax-ar)" stroke-width="20" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M376 296 L326 346 M326 314 V346 H358"/>
+    <path d="M262 418 L312 368 M280 368 H312 V400"/>
+  </g>
+</svg>

@@ -4,17 +4,23 @@ import Or from "../../elements/or"
 import JoinSpace from "../joinspace"
 import ClaimAlias from "../alias/ClaimAlias"
 import { WebSocketContext } from "../../utils/websocket"
+import { InstallLink } from "../share/InstallSheet"
 
 function JoinOrCreate(){
     const [claiming, setClaiming] = useState(false)
-    const { joinRoom } = useContext(WebSocketContext)
+    const { joinRoom, createRoom } = useContext(WebSocketContext)
 
     // Scanned a throwaway room's QR code: faax.me/?join=ABCD
     useEffect(() => {
-        const code = new URLSearchParams(window.location.search).get("join")
+        const params = new URLSearchParams(window.location.search)
+        const code = params.get("join")
         if (code) {
             window.history.replaceState(null, "", "/")
             joinRoom(code)
+        } else if (params.has("new")) {
+            // from the share sheet: "New room"
+            window.history.replaceState(null, "", "/")
+            createRoom()
         }
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -37,6 +43,7 @@ function JoinOrCreate(){
             >
                 Claim your own link →
             </button>
+            <InstallLink className="mt-3" />
         </div>
     )
 }

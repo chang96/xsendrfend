@@ -2,12 +2,14 @@ import { useContext, useEffect, useRef, useState } from "react";
 import { WebSocketContext } from "../../utils/websocket";
 import { aliasUrl } from "../../utils/ownership";
 import { GhostButton, PrimaryButton, QRCode, RecoveryCodeBox, Sheet, Spinner, formatCode, useCopy } from "./ui";
+import { InstallSheet, useInstallState } from "../share/InstallSheet";
 
 // Room pill + share button for the chat header. Owners get a small menu behind the pill.
 export default function RoomMenu({ roomName }) {
     const { aliasSession } = useContext(WebSocketContext);
     const [menuOpen, setMenuOpen] = useState(false);
-    const [sheet, setSheet] = useState(null); // share | pair | devices | recovery
+    const [sheet, setSheet] = useState(null); // share | pair | devices | recovery | install
+    const installState = useInstallState();
     const menuRef = useRef(null);
 
     const isAlias = typeof roomName === "string" && roomName.startsWith("@");
@@ -61,6 +63,7 @@ export default function RoomMenu({ roomName }) {
                         <MenuItem onClick={() => open("pair")}>Add a device</MenuItem>
                         <MenuItem onClick={() => open("devices")}>My devices</MenuItem>
                         <MenuItem onClick={() => open("recovery")}>New recovery code</MenuItem>
+                        {(installState === "prompt" || installState === "ios") && <MenuItem onClick={() => open("install")}>Install app</MenuItem>}
                         <div className="border-t border-[#2b2b2b] my-1" />
                         <MenuItem onClick={() => (window.location.href = "/?home=1")}>Exit to home</MenuItem>
                     </div>
@@ -71,6 +74,7 @@ export default function RoomMenu({ roomName }) {
             {sheet === "pair" && <PairSheet alias={alias} onClose={() => setSheet(null)} />}
             {sheet === "devices" && <DevicesSheet onClose={() => setSheet(null)} onAdd={() => setSheet("pair")} />}
             {sheet === "recovery" && <RecoverySheet alias={alias} onClose={() => setSheet(null)} />}
+            {sheet === "install" && <InstallSheet onClose={() => setSheet(null)} />}
         </>
     );
 }

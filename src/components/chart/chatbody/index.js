@@ -7,6 +7,8 @@ import { buildFileMetadata } from "../../../utils/fileQueue"
 import RoomMenu from "../../alias/RoomMenu"
 import KnockPrompt from "../../alias/KnockPrompt"
 import TasksView from "../../tasks/TasksView"
+import PendingShare from "../../share/PendingShare"
+import { takePendingShareId } from "../../../utils/pwa"
 import { useState, useContext, useEffect, useRef } from 'react'
 
 const formatBytes = (bytes, decimals = 2) => {
@@ -22,6 +24,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
     const [transfers, setTransfers] = useState({});
     // "chat" (default) | "notes" | "tasks" (owner devices only). Remembered per browser.
     const [viewMode, setViewMode] = useState(() => {
+        if (takePendingShareId()) return "chat"; // just shared files in: show the transfer
         try {
             const saved = window.localStorage.getItem("faax_view_mode");
             return ["chat", "notes", "tasks"].includes(saved) ? saved : "chat";
@@ -1422,6 +1425,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
             ) : (
                 /* CHAT COMPOSER: Standard input bar */
                 <div className="bg-[#121212] border-t border-[#1f1f1f] px-3 py-3 flex-shrink-0">
+                    <PendingShare />
                     <div className="flex items-center space-x-2 w-full bg-[#1a1a1a] border border-[#2b2b2b] rounded-full px-3 py-1.5 focus-within:border-[#001AFF] transition-all duration-150 shadow-inner">
                         {/* Dummy attachment trigger for standard room chat */}
                         <div className="flex-shrink-0 flex items-center justify-center text-gray-400 hover:text-white transition-colors duration-150">

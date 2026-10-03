@@ -4,6 +4,7 @@ import JoinOrCreate from "./components/joinorcreate";
 import Logo from "./components/logo";
 import { connect } from "react-redux";
 import AliasGate from "./components/alias/AliasGate";
+import ShareReceiver from "./components/share/ShareReceiver";
 import { getLastAlias } from "./utils/ownership";
 
 // faax.me/<alias>          -> alias room (owner walks in, others knock)
@@ -12,12 +13,15 @@ import { getLastAlias } from "./utils/ownership";
 function resolveRoute() {
   const params = new URLSearchParams(window.location.search);
   let alias = decodeURIComponent(window.location.pathname.replace(/^\/+|\/+$/g, ""));
-  if (!alias && !params.has("home") && !params.has("join")) {
+  if (!alias && !params.has("home") && !params.has("join") && !params.has("new")) {
     const mine = getLastAlias();
     if (mine) {
       alias = mine;
       window.history.replaceState(null, "", "/" + mine);
     }
+  }
+  if (alias === "share") {
+    return { share: true, shareId: params.get("id"), shareError: params.has("error") };
   }
   return {
     alias: alias || null,
@@ -42,7 +46,7 @@ function Home(l) {
         >
         <div 
         className="sm:h-7070 sm:w-1/2 sm:flex sm:justify-center"
-        ><Description />
+        >{!route.share && <Description />}
 
         </div>
         
@@ -50,6 +54,8 @@ function Home(l) {
         className="sm:h-7070 sm:w-1/2 sm:flex sm:justify-center"
         >{joined.status
           ? <ChatBodyAndChatHead />
+          : route.share
+            ? <ShareReceiver id={route.shareId} error={route.shareError} />
           : route.alias
             ? <AliasGate alias={route.alias} pairCode={route.pairCode} removed={route.removed} />
             : <JoinOrCreate />} </div>
