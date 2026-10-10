@@ -3,7 +3,7 @@ import JoinOrCreate from "./components/joinorcreate";
 import { connect } from "react-redux";
 import AliasGate from "./components/alias/AliasGate";
 import ShareReceiver from "./components/share/ShareReceiver";
-import { Hero, MobileMore, TopBar } from "./components/landing/Landing";
+import { Hero, TopBar } from "./components/landing/Landing";
 import { getLastAlias } from "./utils/ownership";
 
 // faax.me/<alias>          -> alias room (owner walks in, others knock)
@@ -46,29 +46,16 @@ function Home({ joined }) {
     <div className="min-h-full sm:max-w-[1180px] sm:mx-auto">
       <TopBar />
       <div className="flex flex-col sm:flex-row sm:items-center sm:gap-10 sm:min-h-[calc(100vh-150px)]">
-        {/* Left: what faax is (desktop) */}
+        {/* Left: the room animation (desktop only; phones get straight to the cards) */}
         <section className="hidden sm:flex sm:w-1/2 sm:justify-start">
           {showPitch && <Hero />}
         </section>
-
-        {/* Phone: short pitch above the cards (not while in a room) */}
-        {showPitch && !inRoom && (
-          <section className="sm:hidden">
-            <Hero compact />
-          </section>
-        )}
 
         {/* Right: the app */}
         <section className="sm:w-1/2 flex justify-center">
           {app}
         </section>
       </div>
-
-      {showPitch && !inRoom && (
-        <section className="sm:hidden">
-          <MobileMore />
-        </section>
-      )}
     </div>
   );
 }
