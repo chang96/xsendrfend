@@ -7,6 +7,11 @@ import { buildFileMetadata } from "../../../utils/fileQueue"
 import RoomMenu from "../../alias/RoomMenu"
 import KnockPrompt from "../../alias/KnockPrompt"
 import TasksView from "../../tasks/TasksView"
+import AppsView from "../../apps/AppsView"
+import { AppsToastHost } from "../../apps/ui"
+import { toast as appsToast } from "../../apps/jobs"
+import { useApps } from "../../apps/hooks"
+import { onOpenRequest, onShared, requestOpen } from "../../../utils/appsStore"
 import PendingShare from "../../share/PendingShare"
 import { takePendingShareId } from "../../../utils/pwa"
 import { useState, useContext, useEffect, useRef } from 'react'
@@ -27,7 +32,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
         if (takePendingShareId()) return "chat"; // just shared files in: show the transfer
         try {
             const saved = window.localStorage.getItem("faax_view_mode");
-            return ["chat", "notes", "tasks"].includes(saved) ? saved : "chat";
+            return ["chat", "notes", "tasks", "apps"].includes(saved) ? saved : "chat";
         } catch (e) {
             return "chat";
         }
@@ -48,8 +53,18 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
         aliasSession
     } = useContext(WebSocketContext);
     const isOwner = !!(aliasSession && aliasSession.role === "owner");
-    // Tasks belong to the owner of an alias room; anyone else falls back to chat
-    const mode = viewMode === "tasks" && !isOwner ? "chat" : viewMode;
+    // Tasks belong to the owner of an alias room; apps live in alias rooms; anyone else falls back to chat
+    const mode = (viewMode === "tasks" && !isOwner) || (viewMode === "apps" && !aliasSession) ? "chat" : viewMode;
+    const { unseen: unseenApps } = useApps();
+
+    // "Open this app" (from a toast) jumps to the Apps view; guests hear about newly shared apps
+    useEffect(() => onOpenRequest(() => chooseView("apps")), []); // eslint-disable-line react-hooks/exhaustive-deps
+    useEffect(() => onShared((app, isNew) => {
+        appsToast({
+            text: `${app.from || "The owner"} ${isNew ? "shared" : "updated"} ${app.name}`,
+            actionLabel: "Open", action: () => requestOpen(app.id), ms: 7000,
+        });
+    }), []);
 
     const [shouldShake, setShouldShake] = useState(false);
     const [notification, setNotification] = useState(null);
@@ -86,14 +101,14 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
     };
 
     const handleDragEnter = (e) => {
-        if (!isFileDrag(e) || mode === "tasks") return;
+        if (!isFileDrag(e) || mode === "tasks" || mode === "apps") return;
         e.preventDefault();
         dragCounterRef.current += 1;
         setIsDragging(true);
     };
 
     const handleDragOver = (e) => {
-        if (!isFileDrag(e) || mode === "tasks") return;
+        if (!isFileDrag(e) || mode === "tasks" || mode === "apps") return;
         e.preventDefault(); // required so the browser allows the drop
         e.dataTransfer.dropEffect = "copy";
         if (mode === "notes") {
@@ -103,7 +118,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
     };
 
     const handleDragLeave = (e) => {
-        if (!isFileDrag(e) || mode === "tasks") return;
+        if (!isFileDrag(e) || mode === "tasks" || mode === "apps") return;
         dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
         if (dragCounterRef.current === 0) {
             setIsDragging(false);
@@ -112,7 +127,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
     };
 
     const handleDrop = (e) => {
-        if (!isFileDrag(e) || mode === "tasks") return;
+        if (!isFileDrag(e) || mode === "tasks" || mode === "apps") return;
         e.preventDefault();
         dragCounterRef.current = 0;
         setIsDragging(false);
@@ -974,6 +989,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
 
                 {/* Owner-side "someone wants to join" prompt for alias rooms */}
                 <KnockPrompt />
+                <AppsToastHost />
 
                 {/* Header view mode toggler (Icons Only) */}
                 <div className="flex bg-[#121212] p-0.5 rounded-lg border border-[#2b2b2b]">
@@ -1005,6 +1021,25 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                             </svg>
                         </button>
                     )}
+                    {aliasSession && (
+                        <button
+                            onClick={() => chooseView("apps")}
+                            title="Apps"
+                            aria-label="Apps"
+                            className={`relative p-1.5 rounded transition-all duration-150 flex items-center justify-center ${
+                                mode === "apps"
+                                    ? "bg-[#001AFF] text-white shadow-md"
+                                    : "text-gray-500 hover:text-white bg-transparent"
+                            }`}
+                        >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" />
+                            </svg>
+                            {!isOwner && unseenApps > 0 && mode !== "apps" && (
+                                <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-[3px] rounded-full bg-[#ff3b5c] text-white text-[8px] font-bold flex items-center justify-center ring-2 ring-[#121212]">{unseenApps}</span>
+                            )}
+                        </button>
+                    )}
                     <button
                         onClick={() => chooseView("chat")}
                         title="Room Chat"
@@ -1034,6 +1069,9 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                         </div>
                         <div>
                             <span className="font-bold text-white">✅ Tasks:</span> On your own link: dump to-dos as they come, then Organize groups, orders and de-duplicates them across your devices.
+                        </div>
+                        <div>
+                            <span className="font-bold text-white">✦ Apps:</span> On a named room: describe a small app (a game, a quiz, a tracker) and run it with whoever's in the room.
                         </div>
                         <div>
                             <span className="font-bold text-white">💬 Chat:</span> Send standard messages and transfer files directly inside a rolling room timeline.
@@ -1271,6 +1309,9 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
             ) : mode === "tasks" ? (
                 /* TASKS MODE: owner-only brain dump + organized list (brings its own composer) */
                 <TasksView />
+            ) : mode === "apps" ? (
+                /* APPS MODE: describe -> build -> run small apps in this room */
+                <AppsView isOwner={isOwner} onExit={() => chooseView("chat")} />
             ) : (
                 /* CHAT MODE: Standard Chat Bubbles log (Fallback Room Chat) */
                 <div
@@ -1419,8 +1460,8 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                         <span>Create Note</span>
                     </button>
                 </div>
-            ) : mode === "tasks" ? (
-                /* TASKS: composer lives inside TasksView */
+            ) : mode === "tasks" || mode === "apps" ? (
+                /* TASKS / APPS: no chat composer */
                 null
             ) : (
                 /* CHAT COMPOSER: Standard input bar */

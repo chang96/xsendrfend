@@ -1,0 +1,24 @@
+@keyframes apps-in { from { opacity: 0; transform: translateY(14px) scale(0.985); } to { opacity: 1; transform: none; } }
+.planner.fx-app-in, .planner .fx-app-in { animation: apps-in 0.3s var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)) both; }
+
+.apps-describe { box-shadow: 0 0 0 4px rgba(77, 99, 255, 0.06); transition: box-shadow 0.25s ease, border-color 0.25s ease; }
+.apps-describe:focus-within { border-color: #3a3f78; box-shadow: 0 0 0 4px rgba(77, 99, 255, 0.14); }
+
+.apps-tile { transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.2s ease, background-color 0.2s ease; }
+.apps-tile:hover { border-color: #34343c; background-color: #1b1b1f; }
+.apps-tile:active { transform: scale(0.96); }
+
+@keyframes apps-orbit { to { transform: rotate(360deg); } }
+.apps-building { position: relative; overflow: hidden; }
+.apps-building::before {
+    content: ""; position: absolute; inset: -40%;
+    background: conic-gradient(from 0deg, transparent 0 70%, rgba(77, 99, 255, 0.55) 85%, transparent 100%);
+    animation: apps-orbit 2.4s linear infinite;
+}
+.apps-building > .apps-building-inner { position: relative; }
+@keyframes apps-breathe { 0%, 100% { transform: scale(1); opacity: 0.85; } 50% { transform: scale(1.08); opacity: 1; } }
+.apps-breathe { animation: apps-breathe 1.8s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+    .planner.fx-app-in, .planner .fx-app-in, .apps-building::before, .apps-breathe { animation: none !important; }
+}

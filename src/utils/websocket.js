@@ -10,6 +10,10 @@ import {
 } from "../action/index"
 import { saveGuestPass, removeOwnership, setLastAlias } from "./ownership"
 import { initTasks, getTasksState, applyRemote } from "./tasksStore"
+import {
+  initApps, manifest as appsManifest, onHello as appsOnHello, applyRemotePut, applyRemoteData,
+  receiveShared, removeShared, listApps, bundleFor
+} from "./appsStore"
 
 const ENDPOINT = process.env.REACT_APP_SOCKET_URL || "https://faax.sandymoon.com.ng"
 const WebSocketContext = createContext(null)
@@ -29,6 +33,29 @@ let currentAuth = null;
 function startTasksSync(alias) {
   initTasks(alias, (state) => socket.emit("tasks:sync", { state }));
   socket.emit("tasks:hello", { state: getTasksState() });
+}
+
+// Generated apps: owner devices keep each other in sync (records + app data); guests ask for what's shared
+function startAppsSync(alias) {
+  initApps(alias, "owner", {
+    put: (record, to) => socket.emit("apps:put", { record, to }),
+    hello: (m, reply) => socket.emit("apps:hello", { manifest: m, reply }),
+    data: (appId, entries) => socket.emit("apps:data", { appId, entries }),
+  }).then(() => socket.emit("apps:hello", { manifest: appsManifest() }));
+}
+function startGuestApps(alias) {
+  initApps(alias, "member", {}).then(() => socket.emit("apps:want"));
+}
+// A guest arrived and wants the shared apps: only one owner device (the host) answers
+function answerAppsWant(guestId) {
+  socket.emit("room:members", {}, (res) => {
+    if (!res || !res.ok) return;
+    const owners = res.members.filter((m) => m.role === "owner").map((m) => m.id).sort();
+    if (owners[0] !== socket.id) return;
+    listApps().filter((a) => a.shared && a.shared !== "off").forEach((a) => {
+      socket.emit("app:share", { app: bundleFor(a), to: guestId });
+    });
+  });
 }
 
 export default ({ children }) => {
@@ -80,6 +107,7 @@ export default ({ children }) => {
       setLastAlias(res.alias);
       setAliasSession({ alias: res.alias, role: "owner", deviceId: creds.deviceId });
       startTasksSync(res.alias);
+      startAppsSync(res.alias);
       enterRoom(res.room, "owner");
     }
     return res;
@@ -90,6 +118,7 @@ export default ({ children }) => {
     if (res.ok) {
       currentAuth = { type: "guest", alias: res.alias, guestPass };
       setAliasSession({ alias: res.alias, role: "guest" });
+      startGuestApps(res.alias);
       enterRoom(res.room, "guest");
     }
     return res;
@@ -121,12 +150,13 @@ export default ({ children }) => {
       if (currentAuth && currentAuth.type === "owner") {
         socket.emit("alias:enter", { alias: currentAuth.alias, deviceId: currentAuth.deviceId, key: currentAuth.key }, (res) => {
           if (!res || !res.ok) console.warn("Could not re-enter alias room as owner:", res);
-          else startTasksSync(currentAuth.alias);
+          else { startTasksSync(currentAuth.alias); startAppsSync(currentAuth.alias); }
         });
       } else if (currentAuth && currentAuth.type === "guest") {
         socket.emit("alias:rejoin", { alias: currentAuth.alias, guestPass: currentAuth.guestPass }, (res) => {
           // Pass expired (e.g. server restarted) -> go back through the door
           if (!res || !res.ok) window.location.replace("/" + currentAuth.alias);
+          else startGuestApps(currentAuth.alias);
         });
       } else if (currentRoom) {
         console.log("Auto-rejoining room on reconnection:", currentRoom);
@@ -179,6 +209,7 @@ export default ({ children }) => {
       saveGuestPass(data.alias, data.guestPass);
       currentAuth = { type: "guest", alias: data.alias, guestPass: data.guestPass };
       setAliasSession({ alias: data.alias, role: "guest" });
+      startGuestApps(data.alias);
       enterRoom(data.room, "guest");
     });
 
@@ -205,6 +236,14 @@ export default ({ children }) => {
     socket.on("tasks:sync", (data) => {
       applyRemote(data && data.state);
     });
+
+    // ---- Generated apps ----
+    socket.on("apps:hello", (d) => { if (d) appsOnHello({ manifest: d.manifest, from: d.from, reply: d.reply }); });
+    socket.on("apps:put", (d) => { if (d) applyRemotePut(d.record); });
+    socket.on("apps:data", (d) => { if (d) applyRemoteData(d.entries); });
+    socket.on("apps:want", (d) => { if (d && d.from) answerAppsWant(d.from); });
+    socket.on("app:shared", (d) => { if (d) receiveShared(d.app, d.from); });
+    socket.on("app:unshared", (d) => { if (d) removeShared(d.appId); });
 
     // Typed an alias into the "join room code" box
     socket.on("aliasRoom", (data) => {

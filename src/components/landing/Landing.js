@@ -14,7 +14,7 @@ const FEATURES = [
     { key: "send", color: "#4d63ff", title: "Send anything", body: "Files, photos and links go straight to your other device. Never stored on our servers." },
     { key: "notes", color: "#3ddc97", title: "Notes & chat", body: "Notes and messages that sync between everyone in the room as you type." },
     { key: "plan", color: "#ffb44c", title: "Plan your day", body: "Dump what's on your mind; it's organised into today's list and your goals.", tag: "Your link" },
-    { key: "play", color: "#c792ea", title: "Play & learn together", body: "Describe a game or puzzle, then play it with whoever's in the room.", tag: "Soon" },
+    { key: "play", color: "#c792ea", title: "Describe an app", body: "A game, a quiz, a tracker: say what you want and run it with whoever's in the room.", tag: "Your link" },
 ];
 
 export function TopBar() {
@@ -51,7 +51,7 @@ export function Hero({ compact }) {
                 <span className="landing-gradient-text">in one room.</span>
             </h1>
             <p className={`text-gray-400 ${compact ? "text-[13px] mt-2.5 leading-relaxed" : "text-[15px] mt-4 leading-relaxed max-w-[440px]"}`}>
-                Send files in a tap, keep notes and plans in sync across your phone and laptop, and soon play and learn together.
+                Send files in a tap, keep notes and plans in sync across your phone and laptop, and run little apps you describe with whoever's in the room.
                 {!compact && " Nothing to sign up for."}
             </p>
 
