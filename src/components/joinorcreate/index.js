@@ -4,7 +4,6 @@ import Or from "../../elements/or"
 import JoinSpace from "../joinspace"
 import ClaimAlias from "../alias/ClaimAlias"
 import { WebSocketContext } from "../../utils/websocket"
-import { InstallLink } from "../share/InstallSheet"
 
 function JoinOrCreate(){
     const [claiming, setClaiming] = useState(false)
@@ -39,11 +38,10 @@ function JoinOrCreate(){
             <JoinSpace />
             <button
                 onClick={() => setClaiming(true)}
-                className="mt-4 text-[11px] text-gray-500 hover:text-white transition-colors"
+                className="mt-5 text-[12px] text-[#8e9bff] hover:text-white transition-colors"
             >
                 Claim your own link →
             </button>
-            <InstallLink className="mt-3" />
         </div>
     )
 }

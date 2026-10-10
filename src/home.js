@@ -1,10 +1,9 @@
 import ChatBodyAndChatHead from "./components/chart";
-import Description from "./components/description";
 import JoinOrCreate from "./components/joinorcreate";
-import Logo from "./components/logo";
 import { connect } from "react-redux";
 import AliasGate from "./components/alias/AliasGate";
 import ShareReceiver from "./components/share/ShareReceiver";
+import { Hero, MobileMore, TopBar } from "./components/landing/Landing";
 import { getLastAlias } from "./utils/ownership";
 
 // faax.me/<alias>          -> alias room (owner walks in, others knock)
@@ -32,54 +31,48 @@ function resolveRoute() {
 
 const route = resolveRoute();
 
-function Home(l) {
-  let {joined} = l
-
-
+function Home({ joined }) {
+  const inRoom = joined.status;
+  const app = inRoom
+    ? <ChatBodyAndChatHead />
+    : route.share
+      ? <ShareReceiver id={route.shareId} error={route.shareError} />
+      : route.alias
+        ? <AliasGate alias={route.alias} pairCode={route.pairCode} removed={route.removed} />
+        : <JoinOrCreate />;
+  const showPitch = !route.share; // the share sheet screen gets straight to the point
 
   return (
-   
-      <div>
-        <div><Logo /></div>
-        <div 
-         className="flex flex-col sm:flex sm:flex-row"
-        >
-        <div 
-        className="sm:h-7070 sm:w-1/2 sm:flex sm:justify-center"
-        >{!route.share && <Description />}
+    <div className="min-h-full sm:max-w-[1180px] sm:mx-auto">
+      <TopBar />
+      <div className="flex flex-col sm:flex-row sm:items-center sm:gap-10 sm:min-h-[calc(100vh-150px)]">
+        {/* Left: what faax is (desktop) */}
+        <section className="hidden sm:flex sm:w-1/2 sm:justify-start">
+          {showPitch && <Hero />}
+        </section>
 
-        </div>
-        
-        <div
-        className="sm:h-7070 sm:w-1/2 sm:flex sm:justify-center"
-        >{joined.status
-          ? <ChatBodyAndChatHead />
-          : route.share
-            ? <ShareReceiver id={route.shareId} error={route.shareError} />
-          : route.alias
-            ? <AliasGate alias={route.alias} pairCode={route.pairCode} removed={route.removed} />
-            : <JoinOrCreate />} </div>
+        {/* Phone: short pitch above the cards (not while in a room) */}
+        {showPitch && !inRoom && (
+          <section className="sm:hidden">
+            <Hero compact />
+          </section>
+        )}
 
-        </div>
-        <div className="text-white absolute left-0 bottom-0 font-thin text-[12px]">
-        {/* contribution: <a>coding salafi</a>, <a>chang</a> */}
-        </div>
+        {/* Right: the app */}
+        <section className="sm:w-1/2 flex justify-center">
+          {app}
+        </section>
       </div>
 
+      {showPitch && !inRoom && (
+        <section className="sm:hidden">
+          <MobileMore />
+        </section>
+      )}
+    </div>
   );
 }
 
-const mapStateToProps = state=> {
-  return {
-      ...state
-  }
-}
+const mapStateToProps = (state) => ({ ...state });
 
-
-const mapDispatchToProps = dispatch => {
-  return {
-      
-  }
-}
-
-export default connect(mapStateToProps, mapDispatchToProps)(Home);
+export default connect(mapStateToProps)(Home);

@@ -13,35 +13,35 @@ function JoinSpace({roomName, changeName}){
     }
 
     return (
-        <div className="w-80 bg-[#1E1E1E] rounded-2xl p-6 border border-[#2b2b2b] hover:border-[#001AFF]/40 shadow-xl transition-all duration-300 flex flex-col justify-between space-y-4">
+        <div className="w-80 bg-gradient-to-b from-[#1b1b1e] to-[#18181b] rounded-3xl p-6 border border-[#2a2a2e] hover:border-[#3a3a42] shadow-[0_20px_50px_-24px_rgba(0,0,0,0.9)] transition-all duration-300 flex flex-col justify-between space-y-4">
             <div className="flex items-center space-x-3">
-                <div className="p-3 bg-[#001AFF]/10 text-[#001AFF] rounded-xl">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="p-2.5 bg-[#4d63ff]/[0.12] text-[#8e9bff] rounded-xl ring-1 ring-inset ring-[#4d63ff]/25">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                   </svg>
                 </div>
                 <div className="text-left">
-                  <h3 className="text-white text-sm font-semibold tracking-wide">
-                    Join Existing Room
+                  <h3 className="text-white text-[14px] font-semibold tracking-tight">
+                    Join a room
                   </h3>
-                  <p className="text-[#777777] text-[11px] leading-tight mt-0.5">
-                    Enter a 4-letter alphanumeric code to securely enter an active room.
+                  <p className="text-gray-500 text-[11.5px] leading-snug mt-0.5">
+                    Type the code shown on your other device, or a friend's.
                   </p>
                 </div>
             </div>
 
             <div className="flex flex-col space-y-2">
-                <div className="flex items-center space-x-2 bg-[#121212] rounded-xl border border-[#2b2b2b] focus-within:border-[#001AFF] px-3 py-1 transition-all duration-150">
+                <div className="flex items-center space-x-2 bg-[#111113] rounded-xl border border-[#2a2a2e] focus-within:border-[#4d63ff]/70 focus-within:shadow-[0_0_0_3px_rgba(77,99,255,0.12)] px-3 py-1 transition-all duration-150">
                     <input 
                         type="text" 
-                        placeholder="Enter Room Code (e.g. ABCD)"
-                        className="flex-1 bg-transparent text-white text-xs py-1.5 focus:outline-none uppercase placeholder-gray-600 font-semibold tracking-wider" 
+                        placeholder="Code, e.g. ABCD"
+                        className="flex-1 bg-transparent text-white text-xs py-1.5 focus:outline-none uppercase placeholder-gray-600 placeholder:normal-case placeholder:tracking-normal placeholder:font-normal font-semibold tracking-[0.2em]" 
                         onChange={(e) => onchange({ name: "join", value: e.target.value })} 
                     />
                     <button 
                         onClick={() => handleJoinroom(roomName.name)}
                         disabled={!roomName.name || roomName.name.trim().length === 0}
-                        className={`text-[10px] font-bold px-3 py-1.5 rounded-lg uppercase shadow-md transition-all duration-150 flex items-center space-x-1 ${
+                        className={`text-[11px] font-semibold px-3.5 py-1.5 rounded-lg shadow-md transition-all duration-150 flex items-center space-x-1 ${
                             roomName.name && roomName.name.trim().length > 0
                                 ? "bg-[#001AFF] text-white hover:bg-blue-700 active:scale-95 cursor-pointer"
                                 : "bg-[#252525] text-gray-500 cursor-not-allowed"
