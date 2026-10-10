@@ -92,7 +92,7 @@ export function AppMenuSheet({ app, lastError, onClearError, onClose, onDeleted 
             setPlanning(true);
             const res = await planApp(ws.request, { prompt: text, who: app.who, base: app });
             setPlanning(false);
-            if (!res.ok) { toast({ text: errorText(res.error), tone: "error", ms: 6000 }); return; }
+            if (!res.ok) { toast({ text: errorText(res.error, res.detail), tone: "error", ms: 6000 }); return; }
             setPlan(res.plan);
             return;
         }

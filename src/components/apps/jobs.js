@@ -11,7 +11,11 @@ export const ERRORS = {
     not_owner: "Only the owner's devices can build apps here.",
     no_response: "Lost the connection while building. Try again.",
 };
-export const errorText = (code) => ERRORS[code] || ERRORS.ai_error;
+// The server adds a short reason for AI failures (bad key, unknown model, overloaded...) so it isn't a mystery
+export const errorText = (code, detail) => {
+    const base = ERRORS[code] || ERRORS.ai_error;
+    return detail && (code === "ai_error" || !ERRORS[code]) ? `${base.replace(/ Try again.*$/, "")} ${detail}` : base;
+};
 
 // ---- toast bus (one host renders it, wherever you are in the room)
 const toastListeners = new Set();
@@ -33,7 +37,7 @@ export function shareToRoom(socket, app) {
 }
 
 export function planApp(request, { prompt, who, base }) {
-    return request("apps:plan", { prompt, who, base: base ? { name: base.name, spec: base.spec, html: "" } : undefined }, 90000);
+    return request("apps:plan", { prompt, who, base: base ? { name: base.name, spec: base.spec, html: "" } : undefined }, 150000);
 }
 
 // New app from a description (+ answers from "Ask me first")
@@ -41,9 +45,9 @@ export async function buildNew(ws, { prompt, who, answers }) {
     const id = newAppId();
     const job = { id, kind: "new", label: prompt, who, startedAt: Date.now() };
     jobs.push(job); changed();
-    const res = await ws.request("apps:build", { prompt, who, answers }, 250000);
+    const res = await ws.request("apps:build", { prompt, who, answers }, 600000);
     jobs = jobs.filter((j) => j !== job); changed();
-    if (!res.ok) { toast({ text: errorText(res.error), ms: 7000, tone: "error" }); return null; }
+    if (!res.ok) { toast({ text: errorText(res.error, res.detail), ms: 12000, tone: "error" }); return null; }
     const a = res.app;
     const now = Date.now();
     const saved = await saveApp({
@@ -65,9 +69,9 @@ export async function buildChange(ws, appId, { prompt, answers, fix }) {
     const res = await ws.request("apps:build", {
         prompt, who: app.who, answers,
         base: { name: app.name, spec: app.spec, html: v.html || "", secrets: v.secrets || null },
-    }, 250000);
+    }, 600000);
     jobs = jobs.filter((j) => j !== job); changed();
-    if (!res.ok) { toast({ text: errorText(res.error), ms: 7000, tone: "error" }); return null; }
+    if (!res.ok) { toast({ text: errorText(res.error, res.detail), ms: 12000, tone: "error" }); return null; }
     const latest = getApp(appId) || app; // it may have changed on another device meanwhile
     const saved = await saveApp(addVersion(latest, res.app));
     shareToRoom(ws.socket, saved);

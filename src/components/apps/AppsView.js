@@ -57,7 +57,7 @@ function Describe({ onAsked }) {
             setPlanning(true);
             const res = await planApp(ws.request, { prompt, who });
             setPlanning(false);
-            if (!res.ok) { toast({ text: errorText(res.error), tone: "error", ms: 6000 }); return; }
+            if (!res.ok) { toast({ text: errorText(res.error, res.detail), tone: "error", ms: 6000 }); return; }
             onAsked({ plan: res.plan, prompt, who, clear: () => setIdea("") });
             return;
         }
