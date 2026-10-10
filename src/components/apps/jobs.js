@@ -36,6 +36,16 @@ export function shareToRoom(socket, app) {
     socket.emit("app:share", { app: bundleFor(app) });
 }
 
+// Off / Live / Keep, from anywhere (runner header, ✦ menu, the grid)
+export async function setAppSharing(socket, app, mode) {
+    if (!app || mode === (app.shared || "off")) return app;
+    const saved = await saveApp({ ...app, shared: mode });
+    if (mode === "off") socket && socket.emit("app:unshare", { appId: app.id });
+    else shareToRoom(socket, saved);
+    toast({ text: mode === "off" ? "Stopped sharing" : mode === "live" ? "Shared live with the room" : "Shared · they can keep a copy" });
+    return saved;
+}
+
 export function planApp(request, { prompt, who, base }) {
     return request("apps:plan", { prompt, who, base: base ? { name: base.name, spec: base.spec, html: "" } : undefined }, 150000);
 }

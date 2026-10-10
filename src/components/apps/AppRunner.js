@@ -2,7 +2,7 @@ import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { WebSocketContext } from "../../utils/websocket";
 import { currentHtml, currentSecrets } from "../../utils/appsStore";
 import AppFrame from "./AppFrame";
-import { AppMenuSheet, GuestAppSheet } from "./Sheets";
+import { AppMenuSheet, GuestAppSheet, ShareSheet } from "./Sheets";
 import { jobFor, toast } from "./jobs";
 import { useJobs } from "./hooks";
 import { AppIcon, Sparkle, Spinner, useStage } from "./ui";
@@ -38,6 +38,7 @@ export default function AppRunner({ app, isOwner, onClose }) {
     useJobs(); // re-render when a job for this app starts or ends
     const job = jobFor(app.id);
     const [menu, setMenu] = useState(false);
+    const [sharing, setSharing] = useState(false);
     const [error, setError] = useState(null);
     const [hostHere, setHostHere] = useState(true);
     const [here, setHere] = useState(1);
@@ -84,10 +85,16 @@ export default function AppRunner({ app, isOwner, onClose }) {
                         {status}
                     </p>
                 </div>
-                {isOwner && app.shared && app.shared !== "off" && (
-                    <span className="hidden sm:inline text-[10px] font-semibold text-[#8e9bff] bg-[#4d63ff]/10 px-2 py-1 rounded-full">Shared</span>
+                {isOwner && (
+                    <button
+                        onClick={() => setSharing(true)}
+                        className={`h-9 px-3 rounded-xl flex items-center gap-1.5 text-[12px] font-semibold transition-colors ${app.shared && app.shared !== "off" ? "bg-[#4d63ff]/15 text-[#a9b3ff] hover:bg-[#4d63ff]/25" : "bg-[#1c1c20] text-gray-200 hover:bg-[#25252b]"}`}
+                    >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.4" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-1a4 4 0 00-5-3.9M9 20H2v-1a5 5 0 0110 0v1m-3-9a3 3 0 100-6 3 3 0 000 6zm8 1a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" /></svg>
+                        {app.shared === "live" ? "Shared" : app.shared === "keep" ? "Shared" : "Share"}
+                    </button>
                 )}
-                <button onClick={() => setMenu(true)} aria-label="App menu: improve, versions, share" className="relative h-9 w-9 rounded-xl bg-[#1c1c20] hover:bg-[#25252b] flex items-center justify-center transition-colors">
+                <button onClick={() => setMenu(true)} aria-label="App menu: improve, versions, rename, delete" className="relative h-9 w-9 rounded-xl bg-[#1c1c20] hover:bg-[#25252b] flex items-center justify-center transition-colors">
                     {job ? <Spinner className="w-4 h-4 text-[#8e9bff]" /> : <Sparkle className="w-4 h-4" />}
                     {error && isOwner && <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-[#ff3b5c] ring-2 ring-[#121212]" />}
                 </button>
@@ -115,6 +122,7 @@ export default function AppRunner({ app, isOwner, onClose }) {
             {menu && isOwner && (
                 <AppMenuSheet app={app} lastError={error} onClearError={() => setError(null)} onClose={() => setMenu(false)} onDeleted={onClose} />
             )}
+            {sharing && isOwner && <ShareSheet app={app} onClose={() => setSharing(false)} />}
             {menu && !isOwner && <GuestAppSheet app={app} onClose={() => setMenu(false)} onRemoved={onClose} />}
         </div>
     );

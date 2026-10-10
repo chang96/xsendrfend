@@ -2,7 +2,7 @@ import { useContext, useState } from "react";
 import { WebSocketContext } from "../../utils/websocket";
 import { deleteApp, forgetShared, saveApp } from "../../utils/appsStore";
 import { Sheet, haptic } from "../tasks/ui";
-import { buildChange, errorText, jobFor, planApp, shareToRoom, toast } from "./jobs";
+import { buildChange, errorText, jobFor, planApp, setAppSharing, shareToRoom, toast } from "./jobs";
 import { AppIcon, Segmented, Sparkle, Spinner, Toggle, whoLabel } from "./ui";
 
 const ago = (t) => {
@@ -112,13 +112,7 @@ export function AppMenuSheet({ app, lastError, onClearError, onClose, onDeleted 
         shareToRoom(ws.socket, saved);
         toast({ text: `Now using v${v}` });
     };
-    const setShare = async (mode) => {
-        if (mode === app.shared) return;
-        const saved = await saveApp({ ...app, shared: mode });
-        if (mode === "off") ws.socket && ws.socket.emit("app:unshare", { appId: app.id });
-        else shareToRoom(ws.socket, saved);
-        toast({ text: mode === "off" ? "Stopped sharing" : mode === "live" ? "Shared live with the room" : "Shared · they can keep it" });
-    };
+    const setShare = (mode) => setAppSharing(ws.socket, app, mode);
     const rename = () => {
         const n = name.trim().slice(0, 24);
         if (!n || n === app.name) return setName(app.name);
@@ -157,6 +151,12 @@ export function AppMenuSheet({ app, lastError, onClearError, onClose, onDeleted 
                     )}
 
                     <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-500 mb-2">Share with the room</p>
+                        <Segmented options={SHARE} value={app.shared || "off"} onChange={setShare} small />
+                        <p className="text-[11px] text-gray-500 mt-1.5 px-0.5">{SHARE_HINT[app.shared || "off"]} Owner-only parts stay on your devices.</p>
+                    </div>
+
+                    <div>
                         <label htmlFor="improve" className="block text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-500 mb-2">Improve it</label>
                         <div className="flex space-x-2">
                             <input
@@ -175,12 +175,6 @@ export function AppMenuSheet({ app, lastError, onClearError, onClose, onDeleted 
                             ))}
                         </div>
                         <div className="mt-2.5"><Toggle on={askFirst} onChange={setAskFirst} label="Ask me first" hint="Answer a few questions before it changes" /></div>
-                    </div>
-
-                    <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-500 mb-2">Share with the room</p>
-                        <Segmented options={SHARE} value={app.shared || "off"} onChange={setShare} small />
-                        <p className="text-[11px] text-gray-500 mt-1.5 px-0.5">{SHARE_HINT[app.shared || "off"]} Owner-only parts stay on your devices.</p>
                     </div>
 
                     <div>
@@ -217,6 +211,44 @@ export function AppMenuSheet({ app, lastError, onClearError, onClose, onDeleted 
                         className={`w-full h-10 rounded-2xl text-[12px] font-semibold border transition-colors ${confirmDelete ? "bg-[#ff3b5c] border-transparent text-white" : "border-[#3a2a2e] text-[#ff8fa3] hover:bg-[#ff6b8b]/10"}`}>
                         {confirmDelete ? "Tap again to delete from all your devices" : "Delete app"}
                     </button>
+                </div>
+            )}
+        </Sheet>
+    );
+}
+
+// The Share button: three clear choices
+const SHARE_ROWS = [
+    { id: "off", title: "Only me", body: "Just your devices have it." },
+    { id: "live", title: "Share live", body: "Everyone in the room can open it while they're here." },
+    { id: "keep", title: "Share to keep", body: "Everyone in the room can open it and keep a copy." },
+];
+export function ShareSheet({ app, onClose }) {
+    const ws = useContext(WebSocketContext);
+    const current = app.shared || "off";
+    return (
+        <Sheet title={`Share ${app.name}`} subtitle="Answers and owner-only parts never leave your devices" onClose={onClose}>
+            {(close) => (
+                <div className="space-y-2">
+                    {SHARE_ROWS.map((r) => {
+                        const on = r.id === current;
+                        return (
+                            <button
+                                key={r.id}
+                                onClick={async () => { haptic(8); await setAppSharing(ws.socket, app, r.id); close(); }}
+                                aria-pressed={on}
+                                className={`w-full text-left flex items-center gap-3 rounded-2xl px-3.5 py-3 border transition-colors ${on ? "bg-[#1d1d2a] border-[#4d63ff]/60" : "bg-[#151517] border-[#26262b] hover:border-[#3a3a42]"}`}
+                            >
+                                <span className={`h-5 w-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${on ? "border-[#4d63ff]" : "border-[#45454d]"}`}>
+                                    {on && <span className="h-2.5 w-2.5 rounded-full bg-[#4d63ff]" />}
+                                </span>
+                                <span className="min-w-0">
+                                    <span className="block text-[13px] font-semibold text-white">{r.title}</span>
+                                    <span className="block text-[11px] text-gray-500 mt-0.5">{r.body}</span>
+                                </span>
+                            </button>
+                        );
+                    })}
                 </div>
             )}
         </Sheet>

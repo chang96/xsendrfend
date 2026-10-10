@@ -6,7 +6,7 @@ import { clearUnseen, getApp, onOpenRequest, takePendingOpen } from "../../utils
 import { haptic } from "../tasks/ui";
 import { buildNew, errorText, planApp, toast } from "./jobs";
 import { useApps, useJobs } from "./hooks";
-import { PlanSheet } from "./Sheets";
+import { AppMenuSheet, PlanSheet } from "./Sheets";
 import AppRunner from "./AppRunner";
 import { AppIcon, Segmented, Sparkle, Spinner, Toggle, WHO, useStage } from "./ui";
 
@@ -103,6 +103,7 @@ export default function AppsView({ isOwner, onExit }) {
     const jobs = useJobs();
     const [openId, setOpenId] = useState(() => takePendingOpen());
     const [asked, setAsked] = useState(null);
+    const [menuId, setMenuId] = useState(null); // ⋯ on a tile: manage without opening
     const scrollRef = useRef(null);
 
     useEffect(() => onOpenRequest((id) => { takePendingOpen(); setOpenId(id); }), []);
@@ -136,18 +137,28 @@ export default function AppsView({ isOwner, onExit }) {
                     <div ref={gridRef} className="grid grid-cols-3 gap-2.5 scroll-mb-6">
                         {newJobs.map((j) => <BuildingTile key={j.id} job={j} />)}
                         {list.map((a, i) => (
-                            <button
-                                key={a.id}
-                                onClick={() => { haptic(6); setOpenId(a.id); }}
-                                className="apps-tile fx-rise flex flex-col items-center gap-2 px-1.5 pt-3.5 pb-3 rounded-[18px] bg-[#18181b] border border-[#26262b] min-w-0"
-                                style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}
-                            >
-                                <AppIcon app={a} size={52} />
-                                <span className="text-[12px] font-semibold text-white truncate max-w-full px-1">{a.name}</span>
-                                <span className="text-[9.5px] text-gray-500 truncate max-w-full px-1 -mt-1">
-                                    {isOwner ? subtitle(a) : a.kept ? "Kept" : "Live"}
-                                </span>
-                            </button>
+                            <div key={a.id} className="relative min-w-0 fx-rise" style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}>
+                                <button
+                                    onClick={() => { haptic(6); setOpenId(a.id); }}
+                                    aria-label={`Open ${a.name}`}
+                                    className="apps-tile w-full flex flex-col items-center gap-2 px-1.5 pt-3.5 pb-3 rounded-[18px] bg-[#18181b] border border-[#26262b] min-w-0"
+                                >
+                                    <AppIcon app={a} size={52} />
+                                    <span className="text-[12px] font-semibold text-white truncate max-w-full px-1">{a.name}</span>
+                                    <span className={`text-[9.5px] truncate max-w-full px-1 -mt-1 ${isOwner && a.shared && a.shared !== "off" ? "text-[#8e9bff]" : "text-gray-500"}`}>
+                                        {isOwner ? subtitle(a) : a.kept ? "Kept" : "Live"}
+                                    </span>
+                                </button>
+                                {isOwner && (
+                                    <button
+                                        onClick={() => { haptic(6); setMenuId(a.id); }}
+                                        aria-label={`Manage ${a.name}: share, improve, delete`}
+                                        className="absolute top-1.5 right-1.5 h-7 w-7 rounded-full flex items-center justify-center text-gray-500 hover:text-white hover:bg-white/5 transition-colors"
+                                    >
+                                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></svg>
+                                    </button>
+                                )}
+                            </div>
                         ))}
                     </div>
 
@@ -171,6 +182,9 @@ export default function AppsView({ isOwner, onExit }) {
                     onClose={() => setAsked(null)}
                     onBuild={(answers) => { asked.clear(); buildNew(ws, { prompt: asked.prompt, who: asked.who, answers }); setAsked(null); }}
                 />
+            )}
+            {menuId && getApp(menuId) && !open && (
+                <AppMenuSheet app={getApp(menuId)} onClose={() => setMenuId(null)} onDeleted={() => setMenuId(null)} />
             )}
             {open && <AppRunner app={open} isOwner={isOwner} onClose={() => setOpenId(null)} />}
         </div>
