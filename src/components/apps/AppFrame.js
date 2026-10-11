@@ -10,19 +10,25 @@ const size = (x) => { try { return JSON.stringify(x === undefined ? null : x).le
 // Who is in the room, and who has THIS app open right now (presence is relayed as app messages
 // with a reserved __faax envelope that never reaches the app). The host is the first owner device,
 // by socket id, that has the app open — so the referee is always a device actually running it.
-function useRoomPresence(socket, request, appId) {
+function useRoomPresence(socket, request, appId, fallbackRole) {
     const [members, setMembers] = useState([]);
     const [me, setMe] = useState(null);
     const [inApp, setInApp] = useState(() => new Set());
 
     const refresh = useCallback(async () => {
-        const res = await request("room:members", {}, 6000);
-        if (!res || !res.ok) return;
+        // offline? don't wait for a timeout before starting the app
+        const res = socket && socket.connected ? await request("room:members", {}, 6000) : null;
+        if (!res || !res.ok) {
+            // offline / not in the room yet: run alone on this device until the room answers
+            setMe((prev) => prev || { id: "local", role: fallbackRole || "member", name: "Me" });
+            setMembers((prev) => (prev.length ? prev : [{ id: "local", role: fallbackRole || "member", name: "Me" }]));
+            return;
+        }
         setMe(res.me);
         setMembers(res.members);
         const ids = new Set(res.members.map((m) => m.id));
         setInApp((prev) => new Set([...prev].filter((id) => ids.has(id))));
-    }, [request]);
+    }, [request, fallbackRole, socket]);
 
     useEffect(() => {
         if (!socket) return undefined;
@@ -65,7 +71,7 @@ function useRoomPresence(socket, request, appId) {
     }, [me, members, inApp]);
 }
 
-export default function AppFrame({ app, html, secrets, who, onError, onNotify, onHost }) {
+export default function AppFrame({ app, html, secrets, who, role, onError, onNotify, onHost }) {
     const { socket, request } = useContext(WebSocketContext);
     const frameRef = useRef(null);
     const readyRef = useRef(false);
@@ -73,7 +79,7 @@ export default function AppFrame({ app, html, secrets, who, onError, onNotify, o
     const loadsRef = useRef(0);
     const queueRef = useRef([]); // messages that arrive before the app has started
     const [frameKey, setFrameKey] = useState(0);
-    const presence = useRoomPresence(socket, request, app.id);
+    const presence = useRoomPresence(socket, request, app.id, role);
     presenceRef.current = presence;
 
     const srcdoc = useMemo(() => buildSrcdoc(html), [html]);

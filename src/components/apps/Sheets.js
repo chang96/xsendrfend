@@ -1,6 +1,6 @@
 import { useContext, useState } from "react";
 import { WebSocketContext } from "../../utils/websocket";
-import { deleteApp, forgetShared, saveApp } from "../../utils/appsStore";
+import { appPath, deleteApp, forgetShared, saveApp } from "../../utils/appsStore";
 import { Sheet, haptic } from "../tasks/ui";
 import { buildChange, errorText, jobFor, planApp, setAppSharing, shareToRoom, toast } from "./jobs";
 import { AppIcon, Segmented, Sparkle, Spinner, Toggle, whoLabel } from "./ui";
@@ -227,6 +227,8 @@ export function AppMenuSheet({ app, lastError, onClearError, onClose, onDeleted 
                         <p className="text-[10.5px] text-gray-600 mt-1.5 px-0.5">The last 5 versions are kept on your devices.</p>
                     </div>
 
+                    <InstallRow app={app} />
+
                     <div>
                         <label htmlFor="appname" className="block text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-500 mb-2">Name</label>
                         <div className="flex items-center space-x-2.5">
@@ -243,6 +245,23 @@ export function AppMenuSheet({ app, lastError, onClearError, onClose, onDeleted 
                 </div>
             )}
         </Sheet>
+    );
+}
+
+
+function InstallRow({ app }) {
+    return (
+        <button
+            onClick={() => window.location.assign(appPath(app) + "&install=1")}
+            className="w-full flex items-center gap-3 rounded-2xl px-3.5 py-3 border border-[#26262b] bg-[#151517] hover:border-[#3a3a42] text-left transition-colors"
+        >
+            <AppIcon app={app} size={36} />
+            <span className="flex-1 min-w-0">
+                <span className="block text-[13px] font-semibold text-white">Install on this device</span>
+                <span className="block text-[11px] text-gray-500">Its own icon on your home screen, opens straight into the app</span>
+            </span>
+            <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" strokeWidth="2.4" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v11m0 0l-4-4m4 4l4-4M5 19h14" /></svg>
+        </button>
     );
 }
 
@@ -295,6 +314,7 @@ export function GuestAppSheet({ app, onClose, onRemoved }) {
                         <p className="text-[12.5px] text-gray-300 leading-relaxed">{app.summary || "An app made in this room."}</p>
                     </div>
                     <p className="text-[11px] text-gray-500 leading-relaxed">It runs sealed off inside faax: it can't reach the internet, your files or other sites. What you save in it stays on this device.</p>
+                    {app.kept && <InstallRow app={app} />}
                     {app.kept && (
                         <button onClick={() => { forgetShared(app.id); close(); onRemoved && onRemoved(); }} className="w-full h-10 rounded-2xl text-[12px] font-semibold border border-[#3a2a2e] text-[#ff8fa3] hover:bg-[#ff6b8b]/10 transition-colors">
                             Remove from this device

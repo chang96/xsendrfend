@@ -21,6 +21,24 @@
     <meta name="application-name" content="faax" />
 
     <title>faax · your devices and your people, in one room</title>
+
+    <!-- A single generated app (faax.me/<alias>/a/<appId>) installs on its own: own manifest, name and icon -->
+    <script>
+      (function () {
+        var m = location.pathname.match(/^\/([a-z0-9-]{3,20})\/a\/(app_[a-z0-9]{4,40})\/?$/i);
+        if (!m) return;
+        var q = new URLSearchParams(location.search);
+        var p = new URLSearchParams({ alias: m[1].toLowerCase(), app: m[2], n: q.get("n") || "", g: q.get("g") || "", bg: q.get("bg") || "", fg: q.get("fg") || "" });
+        var name = (q.get("n") || "faax app").slice(0, 30);
+        var set = function (sel, attr, val) { var el = document.querySelector(sel); if (el) el.setAttribute(attr, val); };
+        set('link[rel="manifest"]', "href", "/api/app-manifest?" + p);
+        set('link[rel="apple-touch-icon"]', "href", "/api/app-icon?" + p);
+        set('meta[name="apple-mobile-web-app-title"]', "content", name);
+        set('meta[name="application-name"]', "content", name);
+        if (/^[0-9a-f]{6}$/i.test(q.get("bg") || "")) set('meta[name="theme-color"]', "content", "#" + q.get("bg"));
+        document.title = name;
+      })();
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>

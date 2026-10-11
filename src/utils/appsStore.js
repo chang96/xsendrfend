@@ -82,6 +82,12 @@ export function currentSecrets(app) {
     const v = app.versions.find((x) => x.v === app.current) || app.versions[0];
     return (v && v.secrets) || null;
 }
+// Link that opens one app on its own (and installs it with its own name and icon)
+export function appPath(app, a = alias) {
+    const q = new URLSearchParams({ n: app.name || "", g: app.glyph || "", bg: String(app.bg || "").replace("#", ""), fg: String(app.fg || "").replace("#", "") });
+    return `/${a}/a/${app.id}?${q}`;
+}
+
 export function currentHtml(app) {
     if (!app) return "";
     if (app.html) return app.html; // guest copy

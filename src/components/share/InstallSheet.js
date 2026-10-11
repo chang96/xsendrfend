@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Sheet } from "../alias/ui";
 import { getInstallState, onInstallStateChange, promptInstall } from "../../utils/pwa";
 import iconUrl from "../../assets/logo-mark.svg";
+import { AppIcon } from "../apps/ui";
 
 export function useInstallState() {
     const [state, setState] = useState(getInstallState());
@@ -16,17 +17,21 @@ const ShareGlyph = () => (
 );
 
 // One entry point for "Install app": native prompt where possible, Add-to-Home-Screen steps on iPhone
-export function InstallSheet({ onClose }) {
+// `app` set -> installing one generated app on its own (this page carries that app's manifest)
+export function InstallSheet({ onClose, app }) {
     const state = useInstallState();
+    const name = app ? app.name : "faax";
     return (
-        <Sheet title="Install faax" onClose={onClose}>
+        <Sheet title={`Install ${name}`} onClose={onClose}>
             <div className="flex flex-col items-center text-center">
-                <div className="h-16 w-16 rounded-[1.1rem] flex items-center justify-center shadow-[0_10px_30px_-10px_rgba(0,26,255,0.9)]" style={{ background: "linear-gradient(135deg,#4357ff,#0a22ff 45%,#0012b8)" }}>
-                    <img src={iconUrl} alt="" className="h-9" />
-                </div>
+                {app ? <AppIcon app={app} size={64} /> : (
+                    <div className="h-16 w-16 rounded-[1.1rem] flex items-center justify-center shadow-[0_10px_30px_-10px_rgba(0,26,255,0.9)]" style={{ background: "linear-gradient(135deg,#4357ff,#0a22ff 45%,#0012b8)" }}>
+                        <img src={iconUrl} alt="" className="h-9" />
+                    </div>
+                )}
                 <p className="text-[12px] text-gray-400 mt-3 leading-relaxed">
-                    Opens full-screen from your home screen, like any other app.
-                    {state !== "ios" && " On Android it also shows up in the share menu, so you can send photos and files straight from your gallery."}
+                    {app ? "Gets its own icon on your home screen and opens straight into the app, full-screen." : "Opens full-screen from your home screen, like any other app."}
+                    {!app && state !== "ios" && " On Android it also shows up in the share menu, so you can send photos and files straight from your gallery."}
                 </p>
             </div>
             {state === "ios" ? (
@@ -34,14 +39,14 @@ export function InstallSheet({ onClose }) {
                     {[
                         <>Tap the Share button <ShareGlyph /> in Safari's toolbar</>,
                         <>Scroll down and tap <span className="text-white font-semibold">Add to Home Screen</span></>,
-                        <>Tap <span className="text-white font-semibold">Add</span>. faax appears on your home screen</>,
+                        <>Tap <span className="text-white font-semibold">Add</span>. {name} appears on your home screen</>,
                     ].map((step, i) => (
                         <li key={i} className="flex items-start rounded-xl bg-[#121212] border border-[#2b2b2b] px-3 py-2.5">
                             <span className="h-5 w-5 rounded-full bg-[#001AFF] text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0 mr-2.5">{i + 1}</span>
                             <span className="text-[12px] text-gray-300 leading-snug">{step}</span>
                         </li>
                     ))}
-                    <li className="text-[10px] text-gray-500 px-1 pt-1">iPhone doesn't let web apps appear in the share menu, so send files from inside faax.</li>
+                    {!app && <li className="text-[10px] text-gray-500 px-1 pt-1">iPhone doesn't let web apps appear in the share menu, so send files from inside faax.</li>}
                 </ol>
             ) : state === "prompt" ? (
                 <button

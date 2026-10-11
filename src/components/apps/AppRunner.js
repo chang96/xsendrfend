@@ -1,5 +1,6 @@
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { WebSocketContext } from "../../utils/websocket";
+import { InstallSheet, useInstallState } from "../share/InstallSheet";
 import { currentHtml, currentSecrets } from "../../utils/appsStore";
 import AppFrame from "./AppFrame";
 import { AppMenuSheet, GuestAppSheet, ShareSheet } from "./Sheets";
@@ -34,11 +35,14 @@ function RunnerKnock() {
     );
 }
 
-export default function AppRunner({ app, isOwner, onClose }) {
+export default function AppRunner({ app, isOwner, onClose, standalone, autoInstall }) {
     useJobs(); // re-render when a job for this app starts or ends
     const job = jobFor(app.id);
     const [menu, setMenu] = useState(false);
     const [sharing, setSharing] = useState(false);
+    const installState = useInstallState();
+    const [installing, setInstalling] = useState(!!autoInstall);
+    const canInstall = standalone && (installState === "prompt" || installState === "ios");
     const [error, setError] = useState(null);
     const [hostHere, setHostHere] = useState(true);
     const [here, setHere] = useState(1);
@@ -74,7 +78,7 @@ export default function AppRunner({ app, isOwner, onClose }) {
     return (
         <div className="planner fixed inset-0 z-[48] flex flex-col bg-[#0c0c0e] fx-app-in">
             <div className="flex items-center gap-2.5 px-3 py-2.5 bg-[#121212] border-b border-[#222226] flex-shrink-0" style={{ paddingTop: "max(0.625rem, env(safe-area-inset-top))" }}>
-                <button onClick={onClose} aria-label="Back to apps" className="h-9 w-9 -ml-1 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
+                <button onClick={onClose} aria-label={standalone ? "Open the faax room" : "Back to apps"} className="h-9 w-9 -ml-1 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
                     <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth="2.4" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 18l-6-6 6-6" /></svg>
                 </button>
                 <AppIcon app={app} size={30} radius={9} />
@@ -85,7 +89,13 @@ export default function AppRunner({ app, isOwner, onClose }) {
                         {status}
                     </p>
                 </div>
-                {isOwner && (
+                {canInstall && (
+                    <button onClick={() => setInstalling(true)} className="h-9 px-3 rounded-xl flex items-center gap-1.5 text-[12px] font-semibold bg-[#001AFF] text-white hover:bg-[#1a33ff] transition-colors">
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.4" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v11m0 0l-4-4m4 4l4-4M5 19h14" /></svg>
+                        Install
+                    </button>
+                )}
+                {isOwner && !canInstall && (
                     <button
                         onClick={() => setSharing(true)}
                         className={`h-9 px-3 rounded-xl flex items-center gap-1.5 text-[12px] font-semibold transition-colors ${app.shared && app.shared !== "off" ? "bg-[#4d63ff]/15 text-[#a9b3ff] hover:bg-[#4d63ff]/25" : "bg-[#1c1c20] text-gray-200 hover:bg-[#25252b]"}`}
@@ -103,7 +113,7 @@ export default function AppRunner({ app, isOwner, onClose }) {
             <div className="relative flex-1 min-h-0">
                 {isOwner ? <RunnerKnock /> : null}
                 {job && <WorkingBanner job={job} />}
-                <AppFrame key={app.id + ":" + (app.current || app.version || 0)} app={app} html={html} secrets={isOwner ? currentSecrets(app) : null} who={app.who} onError={onError} onNotify={onNotify} onHost={onHost} />
+                <AppFrame key={app.id + ":" + (app.current || app.version || 0)} app={app} html={html} secrets={isOwner ? currentSecrets(app) : null} who={app.who} role={isOwner ? "owner" : "member"} onError={onError} onNotify={onNotify} onHost={onHost} />
 
                 {error && isOwner && !job && (
                     <div className="fx-float-in absolute inset-x-3 bottom-3 z-10 flex items-center gap-2 bg-[#1f1416]/95 border border-[#5a2a33] rounded-2xl pl-3.5 pr-1.5 py-1.5 shadow-2xl backdrop-blur" style={{ marginBottom: "env(safe-area-inset-bottom)" }}>
@@ -123,6 +133,7 @@ export default function AppRunner({ app, isOwner, onClose }) {
                 <AppMenuSheet app={app} lastError={error} onClearError={() => setError(null)} onClose={() => setMenu(false)} onDeleted={onClose} />
             )}
             {sharing && isOwner && <ShareSheet app={app} onClose={() => setSharing(false)} />}
+            {installing && standalone && installState !== "installed" && <InstallSheet app={app} onClose={() => setInstalling(false)} />}
             {menu && !isOwner && <GuestAppSheet app={app} onClose={() => setMenu(false)} onRemoved={onClose} />}
         </div>
     );
