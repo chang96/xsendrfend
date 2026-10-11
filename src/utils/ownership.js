@@ -102,3 +102,20 @@ export function deviceLabel() {
 export function aliasUrl(alias) {
     return `${window.location.origin}/${normalizeAlias(alias)}`;
 }
+
+// Invite codes this device was given (kept so coming back later needs no knock while the code is valid)
+const INVITE_KEY = "faax_invites"; // localStorage: { [alias]: { code, expiresAt } }
+export function getInvite(alias) {
+    const inv = read(window.localStorage, INVITE_KEY)[normalizeAlias(alias)];
+    return inv && (!inv.expiresAt || inv.expiresAt > Date.now()) ? inv : null;
+}
+export function saveInvite(alias, code, expiresAt) {
+    const all = read(window.localStorage, INVITE_KEY);
+    all[normalizeAlias(alias)] = { code, expiresAt: expiresAt || null };
+    write(window.localStorage, INVITE_KEY, all);
+}
+export function removeInvite(alias) {
+    const all = read(window.localStorage, INVITE_KEY);
+    delete all[normalizeAlias(alias)];
+    write(window.localStorage, INVITE_KEY, all);
+}

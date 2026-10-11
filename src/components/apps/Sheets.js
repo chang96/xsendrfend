@@ -1,6 +1,7 @@
 import { useContext, useState } from "react";
 import { WebSocketContext } from "../../utils/websocket";
-import { appPath, deleteApp, forgetShared, saveApp } from "../../utils/appsStore";
+import { appPath, deleteApp, forgetShared, getAlias, saveApp } from "../../utils/appsStore";
+import { InviteBody } from "../alias/InviteSheet";
 import { Sheet, haptic } from "../tasks/ui";
 import { buildChange, errorText, jobFor, planApp, setAppSharing, shareToRoom, toast } from "./jobs";
 import { AppIcon, Segmented, Sparkle, Spinner, Toggle, whoLabel } from "./ui";
@@ -274,6 +275,7 @@ const SHARE_ROWS = [
 export function ShareSheet({ app, onClose }) {
     const ws = useContext(WebSocketContext);
     const current = app.shared || "off";
+    const [inviting, setInviting] = useState(false);
     return (
         <Sheet title={`Share ${app.name}`} subtitle="Answers and owner-only parts never leave your devices" onClose={onClose}>
             {(close) => (
@@ -283,7 +285,7 @@ export function ShareSheet({ app, onClose }) {
                         return (
                             <button
                                 key={r.id}
-                                onClick={async () => { haptic(8); await setAppSharing(ws.socket, app, r.id); close(); }}
+                                onClick={async () => { haptic(8); await setAppSharing(ws.socket, app, r.id); if (r.id === "off") close(); }}
                                 aria-pressed={on}
                                 className={`w-full text-left flex items-center gap-3 rounded-2xl px-3.5 py-3 border transition-colors ${on ? "bg-[#1d1d2a] border-[#4d63ff]/60" : "bg-[#151517] border-[#26262b] hover:border-[#3a3a42]"}`}
                             >
@@ -297,6 +299,18 @@ export function ShareSheet({ app, onClose }) {
                             </button>
                         );
                     })}
+                    {current !== "off" && (
+                        inviting ? (
+                            <div className="pt-3 mt-2 border-t border-[#26262b]">
+                                <p className="text-[12px] font-semibold text-white mb-3 text-center">Invite people straight into {app.name}</p>
+                                <InviteBody alias={getAlias()} path={appPath(app)} label={app.name} />
+                            </div>
+                        ) : (
+                            <button onClick={() => setInviting(true)} className="w-full mt-1 h-11 rounded-2xl bg-[#001AFF] hover:bg-[#1a33ff] text-white text-[13px] font-semibold transition-colors">
+                                Invite with an access code
+                            </button>
+                        )
+                    )}
                 </div>
             )}
         </Sheet>

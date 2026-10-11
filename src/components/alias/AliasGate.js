@@ -1,7 +1,7 @@
 import { useContext, useEffect, useRef, useState } from "react";
 import { WebSocketContext } from "../../utils/websocket";
 import {
-    ALIAS_RE, deviceLabel, getGuestPass, getOwnership, normalizeAlias, removeOwnership, saveOwnership,
+    ALIAS_RE, deviceLabel, getGuestPass, getInvite, getOwnership, normalizeAlias, removeInvite, removeOwnership, saveOwnership,
 } from "../../utils/ownership";
 import ClaimAlias from "./ClaimAlias";
 import { PrimaryButton, Spinner } from "./ui";
@@ -23,7 +23,7 @@ const HomeLink = () => (
 // faax.me/<alias>: owners walk straight in, new owner devices pair, everyone else knocks.
 export default function AliasGate({ alias: rawAlias, pairCode, removed }) {
     const alias = normalizeAlias(rawAlias);
-    const { socket, request, enterAsOwner, rejoinAsGuest } = useContext(WebSocketContext);
+    const { socket, request, enterAsOwner, rejoinAsGuest, enterWithCode } = useContext(WebSocketContext);
     const [stage, setStage] = useState("loading"); // loading | invalid | claim | waiting | denied | prove | error
     const [ownersOnline, setOwnersOnline] = useState(0);
     const [notice, setNotice] = useState(removed ? "This device was removed as an owner." : null);
@@ -89,7 +89,25 @@ export default function AliasGate({ alias: rawAlias, pairCode, removed }) {
                 if (res.ok) return;
             }
 
-            // 4) Free name -> offer to claim it, otherwise knock
+            // 4) An access code (in the link, or one this device was given before): straight in
+            const params = new URLSearchParams(window.location.search);
+            const urlCode = params.get("code");
+            if (urlCode) {
+                params.delete("code");
+                const qs = params.toString();
+                window.history.replaceState(null, "", window.location.pathname + (qs ? "?" + qs : ""));
+            }
+            const saved = getInvite(alias);
+            for (const code of [urlCode, saved && saved.code].filter(Boolean)) {
+                const res = await enterWithCode(alias, code);
+                if (res.ok) return;
+                if (code === (saved && saved.code)) removeInvite(alias);
+                if (res.error === "expired_code" || res.error === "invalid_code") {
+                    setNotice(res.error === "expired_code" ? "That access code has expired, so you'll need to be let in." : "That access code isn't valid, so you'll need to be let in.");
+                }
+            }
+
+            // 5) Free name -> offer to claim it, otherwise knock
             const check = await request("alias:check", { alias });
             if (!check.ok) { setStage("error"); return; }
             if (!check.valid) { setStage("invalid"); return; }
@@ -164,6 +182,11 @@ export default function AliasGate({ alias: rawAlias, pairCode, removed }) {
                             </p>
                         </div>
                     </div>
+                    <CodeEntry onSubmit={async (code) => {
+                        const res = await enterWithCode(alias, code);
+                        if (res.ok) { cancelKnock(); return null; }
+                        return res.error === "expired_code" ? "That code has expired." : res.error === "rate_limited" ? "Too many tries. Wait a few minutes." : "That code isn't right.";
+                    }} />
                     <button
                         onClick={() => { cancelKnock(); setStage("prove"); }}
                         className="text-[11px] text-gray-500 hover:text-white transition-colors"
@@ -257,5 +280,38 @@ function ProveOwnership({ alias, onBack, onProved }) {
                 ← Just ask to join instead
             </button>
         </Card>
+    );
+}
+
+// "Have an access code?" while waiting at the door
+function CodeEntry({ onSubmit }) {
+    const [open, setOpen] = useState(false);
+    const [code, setCode] = useState("");
+    const [error, setError] = useState(null);
+    const [busy, setBusy] = useState(false);
+    if (!open) {
+        return <button onClick={() => setOpen(true)} className="text-[11px] text-[#8e9bff] hover:text-white transition-colors">Have an access code?</button>;
+    }
+    const submit = async () => {
+        if (busy) return;
+        if (code.replace(/[^a-z0-9]/gi, "").length !== 16) { setError("Access codes have 16 letters and numbers."); return; }
+        setBusy(true); setError(null);
+        const err = await onSubmit(code);
+        setBusy(false);
+        if (err) setError(err);
+    };
+    return (
+        <div className="space-y-1.5">
+            <div className="flex space-x-2">
+                <input
+                    autoFocus value={code} onChange={(e) => setCode(e.target.value.toUpperCase().slice(0, 19))}
+                    onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
+                    placeholder="XXXX-XXXX-XXXX-XXXX" aria-label="Access code"
+                    className="flex-1 min-w-0 bg-[#121212] rounded-xl border border-[#2b2b2b] focus:border-[#001AFF] px-3 py-2 text-white text-xs font-mono tracking-widest uppercase placeholder-gray-600 focus:outline-none"
+                />
+                <button onClick={submit} disabled={busy} className="px-3 rounded-xl bg-[#001AFF] text-white text-[11px] font-semibold disabled:opacity-50">{busy ? "…" : "Enter"}</button>
+            </div>
+            {error && <p className="text-[10.5px] text-amber-300">{error}</p>}
+        </div>
     );
 }

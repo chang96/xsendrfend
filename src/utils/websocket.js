@@ -8,13 +8,13 @@ import {
   connectionEstablished,
   connecting
 } from "../action/index"
-import { saveGuestPass, removeOwnership, setLastAlias } from "./ownership"
+import { saveGuestPass, removeOwnership, setLastAlias, saveInvite, deviceLabel } from "./ownership"
 import { initTasks, getTasksState, applyRemote } from "./tasksStore"
 import {
   initApps, manifest as appsManifest, onHello as appsOnHello, applyRemotePut, applyRemoteData,
   receiveShared, removeShared, listApps, bundleFor
 } from "./appsStore"
-import { attachJobs } from "../components/apps/jobs"
+import { attachJobs, toast as appsToast } from "../components/apps/jobs"
 
 const ENDPOINT = process.env.REACT_APP_SOCKET_URL || "https://faax.sandymoon.com.ng"
 const WebSocketContext = createContext(null)
@@ -128,6 +128,20 @@ export default ({ children }) => {
     return res;
   }
 
+  // Guest with an access code: straight in, no knock
+  async function enterWithCode(alias, code) {
+    const res = await request("alias:enter-code", { alias, code, name: deviceLabel() });
+    if (res.ok) {
+      saveInvite(res.alias, code, res.expiresAt);
+      saveGuestPass(res.alias, res.guestPass);
+      currentAuth = { type: "guest", alias: res.alias, guestPass: res.guestPass };
+      setAliasSession({ alias: res.alias, role: "guest" });
+      startGuestApps(res.alias);
+      enterRoom(res.room, "guest");
+    }
+    return res;
+  }
+
   async function decideKnock(requestId, allow) {
     setKnocks(prev => prev.filter(k => k.requestId !== requestId));
     return request("alias:decide", { requestId, allow });
@@ -158,8 +172,8 @@ export default ({ children }) => {
         });
       } else if (currentAuth && currentAuth.type === "guest") {
         socket.emit("alias:rejoin", { alias: currentAuth.alias, guestPass: currentAuth.guestPass }, (res) => {
-          // Pass expired (e.g. server restarted) -> go back through the door
-          if (!res || !res.ok) window.location.replace("/" + currentAuth.alias);
+          // Pass expired (e.g. server restarted) -> go back through the door (an access code, if any, gets us in again)
+          if (!res || !res.ok) window.location.replace(window.location.pathname + window.location.search);
           else startGuestApps(currentAuth.alias);
         });
       } else if (currentRoom) {
@@ -220,6 +234,9 @@ export default ({ children }) => {
     // Owner side: someone is knocking / a knock was handled elsewhere (e.g. on my other device)
     socket.on("alias:knock", (data) => {
       setKnocks(prev => prev.some(k => k.requestId === data.requestId) ? prev : [...prev, data]);
+    });
+    socket.on("alias:guest-joined", (data) => {
+      if (data && data.name) appsToast({ text: `${data.name} joined with an access code`, ms: 4000 });
     });
     socket.on("alias:knock-resolved", (data) => {
       setKnocks(prev => prev.filter(k => k.requestId !== data.requestId));
@@ -332,6 +349,7 @@ export default ({ children }) => {
     request: request,
     enterAsOwner: enterAsOwner,
     rejoinAsGuest: rejoinAsGuest,
+    enterWithCode: enterWithCode,
     decideKnock: decideKnock,
     aliasSession: aliasSession,
     knocks: knocks,

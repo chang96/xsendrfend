@@ -3,6 +3,7 @@ import { WebSocketContext } from "../../utils/websocket";
 import { aliasUrl } from "../../utils/ownership";
 import { GhostButton, PrimaryButton, QRCode, RecoveryCodeBox, Sheet, Spinner, formatCode, useCopy } from "./ui";
 import { InstallSheet, useInstallState } from "../share/InstallSheet";
+import { InviteBody } from "./InviteSheet";
 
 // Room pill + share button for the chat header. Owners get a small menu behind the pill.
 export default function RoomMenu({ roomName }) {
@@ -70,7 +71,7 @@ export default function RoomMenu({ roomName }) {
                 )}
             </div>
 
-            {sheet === "share" && <ShareSheet url={shareUrl} label={isAlias ? `faax.me/${alias}` : `Room ${roomName}`} isAlias={isAlias} onClose={() => setSheet(null)} />}
+            {sheet === "share" && <ShareSheet url={shareUrl} label={isAlias ? `faax.me/${alias}` : `Room ${roomName}`} isAlias={isAlias} alias={alias} isOwner={isOwner} onClose={() => setSheet(null)} />}
             {sheet === "pair" && <PairSheet alias={alias} onClose={() => setSheet(null)} />}
             {sheet === "devices" && <DevicesSheet onClose={() => setSheet(null)} onAdd={() => setSheet("pair")} />}
             {sheet === "recovery" && <RecoverySheet alias={alias} onClose={() => setSheet(null)} />}
@@ -87,11 +88,25 @@ function MenuItem({ children, onClick }) {
     );
 }
 
-function ShareSheet({ url, label, isAlias, onClose }) {
+function ShareSheet({ url, label, isAlias, alias, isOwner, onClose }) {
     const [copied, copy] = useCopy();
     const canShare = typeof navigator.share === "function";
+    // Owners choose: guests knock and wait for "Let in", or a fresh access code lets them straight in
+    const [mode, setMode] = useState(() => { try { return localStorage.getItem("faax_share_mode") || "knock"; } catch (e) { return "knock"; } });
+    const pick = (m) => { setMode(m); try { localStorage.setItem("faax_share_mode", m); } catch (e) {} };
     return (
         <Sheet title="Share this room" onClose={onClose}>
+            {isOwner && (
+                <div className="flex bg-[#121212] p-1 rounded-xl border border-[#2b2b2b] mb-4">
+                    {[{ id: "knock", label: "Ask me first" }, { id: "code", label: "Access code" }].map((m) => (
+                        <button key={m.id} onClick={() => pick(m.id)} aria-pressed={mode === m.id}
+                            className={`flex-1 py-1.5 rounded-lg text-[11px] font-semibold transition-colors ${mode === m.id ? "bg-[#2a2a31] text-white" : "text-gray-500 hover:text-gray-300"}`}>
+                            {m.label}
+                        </button>
+                    ))}
+                </div>
+            )}
+            {isOwner && mode === "code" ? <InviteBody alias={alias} label={label} /> : (
             <div className="flex flex-col items-center space-y-3">
                 <QRCode value={url} />
                 <p className="text-white text-xs font-semibold">{label}</p>
@@ -103,6 +118,7 @@ function ShareSheet({ url, label, isAlias, onClose }) {
                     {canShare && <GhostButton onClick={() => navigator.share({ url, title: label }).catch(() => {})}>Share…</GhostButton>}
                 </div>
             </div>
+            )}
         </Sheet>
     );
 }
