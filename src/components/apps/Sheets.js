@@ -14,8 +14,13 @@ const ago = (t) => {
 };
 
 // "Ask me first": the builder's questions, answered with a tap
-export function PlanSheet({ plan, title, onBuild, onClose }) {
+export function PlanSheet({ plan, title, auto, onBuild, onClose }) {
     const qs = plan.questions || [];
+    const big = plan.scope === "big";
+    const heading = title || (auto ? (big ? "This one's a big app" : "Before I build it") : "A few quick choices");
+    const sub = auto
+        ? (big ? "Here's what you'll get. It can take a few minutes to build." : "Here's what you'll get, and what it can't do.")
+        : qs.length ? `${qs.length} question${qs.length > 1 ? "s" : ""} · suggestions picked for you` : "Nothing to ask, this is the plan";
     const [picks, setPicks] = useState(() => qs.map((q) => (typeof q.recommended === "number" ? q.recommended : 0)));
     const build = (close) => {
         const answers = qs.map((q, i) => ({ question: q.question, answer: q.options[picks[i]] }));
@@ -24,16 +29,40 @@ export function PlanSheet({ plan, title, onBuild, onClose }) {
     };
     return (
         <Sheet
-            title={title || "A few quick choices"}
-            subtitle={qs.length ? `${qs.length} question${qs.length > 1 ? "s" : ""} · suggestions picked for you` : "Nothing to ask, this is the plan"}
+            title={heading}
+            subtitle={sub}
             onClose={onClose}
             footer={(close) => (
+                <>
                 <button onClick={() => build(close)} className="w-full h-11 rounded-2xl bg-[#001AFF] hover:bg-[#1a33ff] text-white text-[13px] font-semibold flex items-center justify-center space-x-2 shadow-[0_10px_24px_-12px_rgba(0,26,255,0.9)] active:scale-[0.98] transition-all">
                     <Sparkle className="w-3.5 h-3.5" color="#fff" /><span>Build it</span>
                 </button>
+                {auto && <button onClick={close} className="w-full mt-2 h-9 rounded-2xl text-[12px] font-semibold text-gray-400 hover:text-white transition-colors">Change my idea</button>}
+                </>
             )}
         >
             <p className="text-[12.5px] leading-relaxed text-gray-300 bg-[#111113] border border-[#26262b] rounded-2xl px-3.5 py-3">{plan.summary}</p>
+            {(plan.will_get || []).length > 0 && (
+                <div className="mt-4">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-500 mb-2">What you'll get</p>
+                    <ul className="space-y-1.5">
+                        {plan.will_get.map((t, i) => (
+                            <li key={i} className="flex items-start gap-2 text-[12px] text-gray-200 leading-snug">
+                                <svg className="w-3.5 h-3.5 mt-[1px] flex-shrink-0 text-[#3ddc97]" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                <span>{t}</span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+            {(plan.limits || []).length > 0 && (
+                <div className="mt-4 rounded-2xl border border-[#ffb44c]/25 bg-[#ffb44c]/[0.06] px-3.5 py-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#ffb44c]/90 mb-1.5">Good to know</p>
+                    <ul className="space-y-1">
+                        {plan.limits.map((t, i) => <li key={i} className="text-[11.5px] text-[#f1d7ad] leading-snug">· {t}</li>)}
+                    </ul>
+                </div>
+            )}
             <div className="mt-4 space-y-4">
                 {qs.map((q, i) => (
                     <div key={i} className="fx-rise" style={{ animationDelay: `${i * 40}ms` }}>

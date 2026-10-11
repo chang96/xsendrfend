@@ -45,6 +45,7 @@ function Describe({ onAsked }) {
     const [who, setWho] = useState(() => { try { return localStorage.getItem("faax_apps_who") || "room"; } catch (e) { return "room"; } });
     const [askFirst, setAskFirst] = useState(() => { try { const v = localStorage.getItem("faax_apps_ask"); return v === null ? null : v === "1"; } catch (e) { return null; } });
     const [planning, setPlanning] = useState(false);
+    const [checking, setChecking] = useState(false);
     const ask = askFirst === null ? who === "class" : askFirst; // on by default for a class
     const pickWho = (w) => { setWho(w); try { localStorage.setItem("faax_apps_who", w); } catch (e) {} };
     const pickAsk = (v) => { setAskFirst(v); try { localStorage.setItem("faax_apps_ask", v ? "1" : "0"); } catch (e) {} };
@@ -59,6 +60,14 @@ function Describe({ onAsked }) {
             setPlanning(false);
             if (!res.ok) { toast({ text: errorText(res.error, res.detail), tone: "error", ms: 6000 }); return; }
             onAsked({ plan: res.plan, prompt, who, clear: () => setIdea("") });
+            return;
+        }
+        // Quick check first: a big app, or one with limits worth knowing, shows its plan before building
+        setChecking(true);
+        const res = await planApp(ws.request, { prompt, who });
+        setChecking(false);
+        if (res.ok && res.plan && (res.plan.scope === "big" || (res.plan.limits || []).length)) {
+            onAsked({ plan: res.plan, prompt, who, auto: true, clear: () => setIdea("") });
             return;
         }
         setIdea("");
@@ -88,10 +97,12 @@ function Describe({ onAsked }) {
             </div>
             <Toggle on={ask} onChange={pickAsk} label="Ask me first" hint="A few quick questions so it gets the rules right" />
             <button
-                onClick={create} disabled={!idea.trim() || planning}
+                onClick={create} disabled={!idea.trim() || planning || checking}
                 className="w-full h-11 rounded-2xl bg-[#001AFF] hover:bg-[#1a33ff] disabled:opacity-40 text-white text-[13.5px] font-semibold flex items-center justify-center gap-2 shadow-[0_10px_24px_-12px_rgba(0,26,255,0.9)] active:scale-[0.98] transition-all"
             >
-                {planning ? <><Spinner className="w-4 h-4" /><span>Thinking of questions…</span></> : <span>Create app</span>}
+                {planning ? <><Spinner className="w-4 h-4" /><span>Thinking of questions…</span></>
+                    : checking ? <><Spinner className="w-4 h-4" /><span>Sizing up your idea…</span></>
+                    : <span>Create app</span>}
             </button>
         </div>
     );
@@ -179,6 +190,7 @@ export default function AppsView({ isOwner, onExit }) {
             {asked && (
                 <PlanSheet
                     plan={asked.plan}
+                    auto={asked.auto}
                     onClose={() => setAsked(null)}
                     onBuild={(answers) => { asked.clear(); buildNew(ws, { prompt: asked.prompt, who: asked.who, answers }); setAsked(null); }}
                 />
