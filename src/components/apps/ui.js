@@ -80,12 +80,14 @@ export function Spinner({ className = "w-4 h-4" }) {
     );
 }
 
-const STAGES = ["Reading your idea", "Sketching the screens", "Wiring up the room", "Adding your owner view", "Making it feel nice", "Testing the edges", "Almost there"];
-export function useStage(startedAt) {
+// Real progress comes from the server (what the model is actually writing); this just adds the clock
+export function useStage(job) {
     const [now, setNow] = useState(Date.now());
     useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
-    const secs = Math.max(0, Math.round((now - (startedAt || now)) / 1000));
-    return { secs, stage: STAGES[Math.min(STAGES.length - 1, Math.floor(secs / 9))] };
+    const secs = Math.max(0, Math.round((now - ((job && job.startedAt) || now)) / 1000));
+    const text = (job && job.progress && job.progress.text) || "Reading your idea";
+    const time = secs >= 60 ? `${Math.floor(secs / 60)}m ${String(secs % 60).padStart(2, "0")}s` : `${secs}s`;
+    return { secs, time, stage: text, phase: job && job.progress && job.progress.phase };
 }
 
 // One toast host for the whole room (fixed, above apps and sheets)

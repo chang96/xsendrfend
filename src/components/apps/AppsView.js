@@ -22,7 +22,7 @@ const subtitle = (app) => {
 };
 
 function BuildingTile({ job }) {
-    const { secs, stage } = useStage(job.startedAt);
+    const { time, stage, phase } = useStage(job);
     return (
         <div className="apps-building fx-app-in col-span-3 rounded-[20px] p-[1px] bg-[#1f1f26]">
             <div className="apps-building-inner flex items-center gap-3 rounded-[19px] bg-[#16161a] px-3.5 py-3">
@@ -30,10 +30,10 @@ function BuildingTile({ job }) {
                     <Sparkle className="w-5 h-5 fx-twinkle" color="#fff" />
                 </span>
                 <span className="flex-1 min-w-0">
-                    <span className="block text-[13px] font-semibold text-white truncate">{stage}…</span>
-                    <span className="block text-[11px] text-gray-500 truncate">“{job.label}”</span>
+                    <span key={stage} className="fx-float-in block text-[13px] font-semibold text-white truncate">{stage}{phase === "html" || phase === "start" ? "…" : ""}</span>
+                    <span className="block text-[11px] text-gray-500 truncate">{job.mine === false ? "On your other device · " : ""}“{job.label}”</span>
                 </span>
-                <span className="text-[11px] tabular-nums text-gray-500">{secs}s</span>
+                <span className="text-[11px] tabular-nums text-gray-500 flex-shrink-0">{time}</span>
             </div>
         </div>
     );

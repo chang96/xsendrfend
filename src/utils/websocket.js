@@ -14,6 +14,7 @@ import {
   initApps, manifest as appsManifest, onHello as appsOnHello, applyRemotePut, applyRemoteData,
   receiveShared, removeShared, listApps, bundleFor
 } from "./appsStore"
+import { attachJobs } from "../components/apps/jobs"
 
 const ENDPOINT = process.env.REACT_APP_SOCKET_URL || "https://faax.sandymoon.com.ng"
 const WebSocketContext = createContext(null)
@@ -41,7 +42,10 @@ function startAppsSync(alias) {
     put: (record, to) => socket.emit("apps:put", { record, to }),
     hello: (m, reply) => socket.emit("apps:hello", { manifest: m, reply }),
     data: (appId, entries) => socket.emit("apps:data", { appId, entries }),
-  }).then(() => socket.emit("apps:hello", { manifest: appsManifest() }));
+  }).then(() => {
+    socket.emit("apps:hello", { manifest: appsManifest() });
+    attachJobs(socket); // builds in flight: live progress + results that finished while we were away
+  });
 }
 function startGuestApps(alias) {
   initApps(alias, "member", {}).then(() => socket.emit("apps:want"));

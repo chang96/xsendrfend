@@ -8,11 +8,11 @@ import { useJobs } from "./hooks";
 import { AppIcon, Sparkle, Spinner, useStage } from "./ui";
 
 function WorkingBanner({ job }) {
-    const { secs, stage } = useStage(job.startedAt);
+    const { time, stage } = useStage(job);
     return (
         <div className="fx-float-in absolute top-2 left-1/2 -translate-x-1/2 z-10 flex items-center space-x-2 max-w-[90%] bg-[#18181b]/95 border border-[#33334a] text-[#c7cdff] text-[11.5px] rounded-full pl-2.5 pr-3.5 py-1.5 shadow-2xl backdrop-blur">
             <Sparkle className="w-3.5 h-3.5 fx-twinkle" />
-            <span className="truncate">{job.fix ? "Fixing" : stage}… {secs}s</span>
+            <span key={stage} className="truncate">{job.fix && job.progress && job.progress.phase === "start" ? "Finding the bug" : stage} · {time}</span>
         </div>
     );
 }
