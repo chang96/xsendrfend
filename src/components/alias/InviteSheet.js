@@ -1,6 +1,6 @@
 import { useContext, useEffect, useState } from "react";
 import { WebSocketContext } from "../../utils/websocket";
-import { GhostButton, QRCode, Spinner, useCopy } from "./ui";
+import { QRCode, Spinner, useCopy } from "./ui";
 import { getOwnership } from "../../utils/ownership";
 import { canMakeCodes, makeInviteCode } from "../../utils/invites";
 
@@ -19,6 +19,7 @@ export function InviteBody({ alias, path, label }) {
     const [invite, setInvite] = useState(null);
     const [error, setError] = useState(null);
     const [confirmRevoke, setConfirmRevoke] = useState(false);
+    const [showQr, setShowQr] = useState(false);
     const [copied, copy] = useCopy();
     const canShare = typeof navigator.share === "function";
 
@@ -47,23 +48,42 @@ export function InviteBody({ alias, path, label }) {
 
     return (
         <div className="flex flex-col items-center space-y-3">
-            <div className="relative">
-                <div className={invite ? "" : "opacity-20 blur-[2px]"}><QRCode value={url || window.location.origin} /></div>
-                {!invite && !error && <div className="absolute inset-0 flex items-center justify-center"><Spinner className="w-5 h-5" /></div>}
+            {/* The link is the main thing: paste it anywhere (WhatsApp, SMS, email), one tap gets people in */}
+            <div className="w-full">
+                <p className="text-[10px] uppercase tracking-[0.14em] text-gray-500 mb-1.5">Invite link</p>
+                <div className="w-full flex items-center bg-[#121212] border border-[#2b2b2b] rounded-xl pl-3 pr-1 py-1 min-h-[42px]">
+                    {invite ? (
+                        <a href={url} onClick={(e) => { e.preventDefault(); copy(url, "link"); }} title="Copy invite link" className="flex-1 min-w-0 truncate text-[11.5px] text-[#a9b3ff] select-all">
+                            {url.replace(/^https?:\/\//, "")}
+                        </a>
+                    ) : (
+                        <span className="flex-1 flex items-center text-[11px] text-gray-600">{error ? "No link" : <><Spinner className="w-3.5 h-3.5 mr-2" />Making a code…</>}</span>
+                    )}
+                    <button onClick={() => invite && copy(url, "link")} disabled={!invite}
+                        className="ml-2 h-8 px-3 rounded-lg bg-[#001AFF] hover:bg-[#1a33ff] disabled:opacity-40 text-white text-[11px] font-semibold flex-shrink-0">
+                        {copied === "link" ? "Copied ✓" : "Copy"}
+                    </button>
+                </div>
             </div>
             {invite && (
                 <>
-                    <div className="text-center">
-                        <p className="text-[10px] uppercase tracking-[0.14em] text-gray-500">Access code</p>
-                        <button onClick={() => copy(invite.code, "code")} title="Copy code" className="font-mono text-white text-[15px] tracking-[0.12em] mt-0.5 hover:text-[#8e9bff]">{invite.code}</button>
-                    </div>
+                    {canShare && (
+                        <button onClick={() => navigator.share({ url, title: label, text: `Join ${label} on faax: tap the link (code ${invite.code})` }).catch(() => {})}
+                            className="w-full py-2.5 rounded-xl text-[12px] font-semibold text-white bg-[#1c1c22] border border-[#2f2f37] hover:border-[#45454d]">
+                            Send the link…
+                        </button>
+                    )}
                     <p className="text-[#8a8a93] text-[11px] text-center leading-snug">
-                        Anyone with this link or code gets into {label} straight away until <span className="text-gray-300">{until(invite.expiresAt)}</span>. No need for you to be online.
+                        Anyone with this link gets into {label} straight away until <span className="text-gray-300">{until(invite.expiresAt)}</span>. No need for you to tap "Let in".
                     </p>
-                    <div className="flex w-full space-x-2">
-                        <GhostButton onClick={() => copy(url, "link")}>{copied === "link" ? "Copied ✓" : copied === "code" ? "Code copied ✓" : "Copy link"}</GhostButton>
-                        {canShare && <GhostButton onClick={() => navigator.share({ url, title: label, text: `Join ${label} on faax (code ${invite.code})` }).catch(() => {})}>Share…</GhostButton>}
+                    <div className="w-full flex items-center justify-between gap-2 rounded-xl bg-[#151517] border border-[#26262b] px-3 py-2">
+                        <span className="text-[10px] text-gray-500 flex-shrink-0">or the code</span>
+                        <button onClick={() => copy(invite.code, "code")} title="Copy code" className="font-mono text-white text-[12.5px] tracking-[0.06em] whitespace-nowrap hover:text-[#8e9bff]">
+                            {copied === "code" ? "Copied ✓" : invite.code}
+                        </button>
                     </div>
+                    <button onClick={() => setShowQr((v) => !v)} className="text-[11px] text-gray-500 hover:text-white">{showQr ? "Hide QR code" : "Show QR code"}</button>
+                    {showQr && <QRCode value={url} />}
                 </>
             )}
             {error && <p className="text-[11px] text-amber-300 text-center">{error}</p>}
