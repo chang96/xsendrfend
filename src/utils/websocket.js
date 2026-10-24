@@ -15,6 +15,7 @@ import {
   receiveShared, removeShared, listApps, bundleFor
 } from "./appsStore"
 import { attachJobs, toast as appsToast } from "../components/apps/jobs"
+import { refreshPush } from "./push"
 
 const ENDPOINT = process.env.REACT_APP_SOCKET_URL || "https://faax.sandymoon.com.ng"
 const WebSocketContext = createContext(null)
@@ -45,6 +46,7 @@ function startAppsSync(alias) {
   }).then(() => {
     socket.emit("apps:hello", { manifest: appsManifest() });
     attachJobs(socket); // builds in flight: live progress + results that finished while we were away
+    refreshPush(socket); // keep this device's push address current
   });
 }
 function startGuestApps(alias) {

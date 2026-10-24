@@ -4,7 +4,7 @@
  * - Share target: Android's share sheet POSTs files to /share-target. We keep them in
  *   IndexedDB on this device (never uploaded anywhere) and open /share?id=... to send them.
  */
-const VERSION = "faax-v1";
+const VERSION = "faax-v2";
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const SHELL = ["/", "/index.html", "/manifest.json", "/favicon.svg", "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png"];
@@ -108,4 +108,38 @@ self.addEventListener("fetch", (event) => {
       return res;
     })());
   }
+});
+
+// ------------------------------------------------------------------ push notifications
+// The server sends an encrypted push (decrypted by the browser) when something needs this device:
+// a file waiting to be received, a note, someone knocking, an app that finished building.
+// Files never travel in the push: tapping opens faax and the transfer runs live from the sender.
+self.addEventListener("push", (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch (e) { data = { title: "faax", body: event.data ? event.data.text() : "" }; }
+  const title = data.title || "faax";
+  event.waitUntil(self.registration.showNotification(title, {
+    body: data.body || "",
+    tag: data.tag || undefined,
+    renotify: !!data.tag,
+    icon: "/icon-192.png",
+    badge: "/favicon-32.png",
+    data: { url: data.url || "/" },
+  }));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = new URL((event.notification.data && event.notification.data.url) || "/", self.location.origin);
+  event.waitUntil((async () => {
+    const wins = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    // reuse a faax window on the same room if there is one, else open a new one
+    const same = wins.find((w) => new URL(w.url).pathname === target.pathname);
+    if (same) {
+      await same.focus();
+      if (target.search) same.postMessage({ faaxNotification: true, url: target.pathname + target.search });
+      return;
+    }
+    if (self.clients.openWindow) await self.clients.openWindow(target.href);
+  })());
 });

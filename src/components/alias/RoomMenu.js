@@ -4,6 +4,7 @@ import { aliasUrl } from "../../utils/ownership";
 import { GhostButton, PrimaryButton, QRCode, RecoveryCodeBox, Sheet, Spinner, formatCode, useCopy } from "./ui";
 import { InstallSheet, useInstallState } from "../share/InstallSheet";
 import { InviteBody } from "./InviteSheet";
+import NotifySheet from "./NotifySheet";
 
 // Room pill + share button for the chat header. Owners get a small menu behind the pill.
 export default function RoomMenu({ roomName }) {
@@ -63,6 +64,7 @@ export default function RoomMenu({ roomName }) {
                     <div className="absolute left-0 top-7 z-40 w-44 bg-[#1E1E1F] border border-[#2b2b2b] rounded-xl shadow-2xl py-1 text-left backdrop-blur-md">
                         <MenuItem onClick={() => open("pair")}>Add a device</MenuItem>
                         <MenuItem onClick={() => open("devices")}>My devices</MenuItem>
+                        <MenuItem onClick={() => open("notify")}>Notifications</MenuItem>
                         <MenuItem onClick={() => open("recovery")}>New recovery code</MenuItem>
                         {(installState === "prompt" || installState === "ios") && <MenuItem onClick={() => open("install")}>Install app</MenuItem>}
                         <div className="border-t border-[#2b2b2b] my-1" />
@@ -76,6 +78,7 @@ export default function RoomMenu({ roomName }) {
             {sheet === "devices" && <DevicesSheet onClose={() => setSheet(null)} onAdd={() => setSheet("pair")} />}
             {sheet === "recovery" && <RecoverySheet alias={alias} onClose={() => setSheet(null)} />}
             {sheet === "install" && <InstallSheet onClose={() => setSheet(null)} />}
+            {sheet === "notify" && <NotifySheet onClose={() => setSheet(null)} />}
         </>
     );
 }

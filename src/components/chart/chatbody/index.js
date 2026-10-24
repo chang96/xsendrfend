@@ -30,6 +30,17 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
     // "chat" (default) | "notes" | "tasks" (owner devices only). Remembered per browser.
     const [viewMode, setViewMode] = useState(() => {
         if (takePendingShareId()) return "chat"; // just shared files in: show the transfer
+        // opened from a notification: ?view=chat (a file is coming) or ?view=apps (an app is ready)
+        try {
+            const p = new URLSearchParams(window.location.search);
+            const v = p.get("view");
+            if (["chat", "notes", "tasks", "apps"].includes(v)) {
+                p.delete("view");
+                const qs = p.toString();
+                window.history.replaceState(null, "", window.location.pathname + (qs ? "?" + qs : ""));
+                return v;
+            }
+        } catch (e) {}
         try {
             const saved = window.localStorage.getItem("faax_view_mode");
             return ["chat", "notes", "tasks", "apps"].includes(saved) ? saved : "chat";
@@ -56,6 +67,39 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
     // Tasks belong to the owner of an alias room; apps live in alias rooms; anyone else falls back to chat
     const mode = (viewMode === "tasks" && !isOwner) || (viewMode === "apps" && !aliasSession) ? "chat" : viewMode;
     const { unseen: unseenApps } = useApps();
+
+    // A notification was tapped while this room was already open in a tab
+    useEffect(() => {
+        if (!("serviceWorker" in navigator)) return undefined;
+        const onMsg = (e) => {
+            if (!e.data || !e.data.faaxNotification) return;
+            try { const v = new URL(e.data.url, window.location.origin).searchParams.get("view"); if (v) chooseView(v); } catch (err) {}
+        };
+        navigator.serviceWorker.addEventListener("message", onMsg);
+        return () => navigator.serviceWorker.removeEventListener("message", onMsg);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Files wait in the queue until another device is really here (its chat has mounted), then go.
+    const [peerReady, setPeerReady] = useState(peersCount > 0);
+    useEffect(() => {
+        if (peersCount === 0) { setPeerReady(false); return undefined; }
+        const t = setTimeout(() => setPeerReady(true), 1500);
+        return () => clearTimeout(t);
+    }, [peersCount]);
+
+    // Nobody else here: tap my other devices on the shoulder (push), once per batch
+    const notifiedRef = useRef(new Set());
+    const showNote = (text, ms = 5000) => {
+        setNotification(text);
+        if (notificationTimeoutRef.current) clearTimeout(notificationTimeoutRef.current);
+        notificationTimeoutRef.current = setTimeout(() => setNotification(null), ms);
+    };
+    const pingOtherDevices = async (payload) => {
+        if (!isOwner || !socket) return;
+        const res = await new Promise((r) => socket.emit("push:notify", payload, r));
+        if (res && res.ok && res.sent > 0) showNote(`Notified your other device${res.sent > 1 ? "s" : ""}. Keep this open until it arrives`, 6000);
+        else if (res && res.ok) showNote("No other device has notifications on. Open faax there to receive", 6000);
+    };
 
     // "Open this app" (from a toast) jumps to the Apps view; guests hear about newly shared apps
     useEffect(() => onOpenRequest(() => chooseView("apps")), []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -478,8 +522,8 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
             }
         });
 
-        // Trigger queue processing if files are pre-loaded
-        if (queued.queued.length > 0) {
+        // Trigger queue processing if files are pre-loaded (only once a receiving device is here)
+        if (queued.queued.length > 0 && peerReady) {
             const nextFile = queued.queued[0];
             handleClick(nextFile);
             queued.queued.shift();
@@ -500,7 +544,17 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
             socket.off('file-resume-response-received');
             window.onFileChunkAckReceived = null;
         }
-    }, [userType, transfers, queued, roomName.name]);
+    }, [userType, transfers, queued, roomName.name, peerReady]);
+
+    // Files queued while no other device is here -> one notification for the batch
+    useEffect(() => {
+        if (peersCount > 0 || !isOwner) return;
+        const fresh = queued.queued.filter((f) => !notifiedRef.current.has(f.fileId));
+        if (!fresh.length) return;
+        fresh.forEach((f) => notifiedRef.current.add(f.fileId));
+        const bytes = fresh.reduce((n, f) => n + (f.size || 0), 0);
+        pingOtherDevices({ kind: "file", count: fresh.length, name: fresh[0].name, size: bytes ? formatBytes(bytes, 1) : "" });
+    }, [queued, peersCount, isOwner]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleIncomingNoteCreate = (data) => {
         const noteId = data.noteId;
@@ -1489,6 +1543,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                                     }
                                     // Send standard chat message
                                     if (!composerText.trim()) return;
+                                    if (peersCount === 0) pingOtherDevices({ kind: "text", text: composerText });
                                     newMessageDispatch({ type: "guest", message: composerText });
                                     socket.emit("messageFromClient", {
                                         roomName: roomName.name,
@@ -1510,6 +1565,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                                     triggerNoDeviceAlert();
                                 }
                                 if (!composerText.trim()) return;
+                                if (peersCount === 0) pingOtherDevices({ kind: "text", text: composerText });
                                 newMessageDispatch({ type: "guest", message: composerText });
                                 socket.emit("messageFromClient", {
                                     roomName: roomName.name,
