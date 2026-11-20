@@ -122,7 +122,7 @@ export default function AppFrame({ app, html, secrets, who, role, onError, onNot
             switch (m.type) {
                 case "hello":
                     if (!pr) { setTimeout(() => onMessage(e), 300); break; } // presence not loaded yet
-                    toFrame({ type: "init", ctx: { me: pr.me, members: pr.members, who: who || "room", app: { name: app.name }, secrets: pr.me.role === "owner" ? secrets || null : null } });
+                    toFrame({ type: "init", ctx: { me: pr.me, members: pr.members, who: who || "room", app: { name: app.name, version: app.current || app.version || 1 }, secrets: pr.me.role === "owner" ? secrets || null : null } });
                     readyRef.current = true;
                     queueRef.current.splice(0).forEach(toFrame);
                     break;
@@ -149,7 +149,7 @@ export default function AppFrame({ app, html, secrets, who, role, onError, onNot
         };
         window.addEventListener("message", onMessage);
         return () => window.removeEventListener("message", onMessage);
-    }, [app.id, app.name, who, secrets, socket, toFrame, onError, onNotify]);
+    }, [app.id, app.name, who, secrets, socket, toFrame, onError, onNotify]); // eslint-disable-line react-hooks/exhaustive-deps -- the frame remounts on a new version
 
     // if the app ever navigates itself away from its document, put it back
     const onLoad = () => {

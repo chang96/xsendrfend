@@ -1,7 +1,7 @@
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { WebSocketContext } from "../../utils/websocket";
 import { InstallSheet, useInstallState } from "../share/InstallSheet";
-import { currentHtml, currentSecrets } from "../../utils/appsStore";
+import { currentHtml, currentSecrets, whatsNew } from "../../utils/appsStore";
 import AppFrame from "./AppFrame";
 import { AppMenuSheet, GuestAppSheet, ShareSheet } from "./Sheets";
 import { jobFor, toast } from "./jobs";
@@ -35,11 +35,42 @@ function RunnerKnock() {
     );
 }
 
+// After an update: what changed, once per version (dismissed = seen on this device)
+function WhatsNew({ app }) {
+    const version = app.current || app.version || 0;
+    const key = `faax_seen_${app.id}_${version}`;
+    const { note, changes } = whatsNew(app);
+    const [open, setOpen] = useState(() => { try { return !localStorage.getItem(key); } catch (e) { return false; } });
+    const [expanded, setExpanded] = useState(false);
+    if (!open || version < 2 || !(note || (changes && changes.length))) return null;
+    const close = () => { setOpen(false); try { localStorage.setItem(key, "1"); } catch (e) {} };
+    return (
+        <div className="fx-float-in absolute top-2 inset-x-3 z-10 mx-auto max-w-md bg-[#15172a]/95 border border-[#33397a] rounded-2xl shadow-2xl backdrop-blur overflow-hidden">
+            <div className="flex items-center gap-2 pl-3.5 pr-1.5 py-1.5">
+                <Sparkle className="w-3.5 h-3.5 flex-shrink-0" />
+                <button onClick={() => setExpanded((x) => !x)} className="flex-1 min-w-0 text-left">
+                    <span className="block text-[12px] font-semibold text-white truncate">New in v{version}{note ? ` · ${note}` : ""}</span>
+                    {!expanded && changes && changes.length > 0 && <span className="block text-[10.5px] text-[#a9b3ff]">See what changed</span>}
+                </button>
+                <button onClick={close} aria-label="Dismiss" className="h-8 w-8 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 flex items-center justify-center">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            {expanded && changes && changes.length > 0 && (
+                <ul className="px-4 pb-3 space-y-1">
+                    {changes.map((c, i) => <li key={i} className="text-[11.5px] text-gray-200 leading-snug">· {c}</li>)}
+                </ul>
+            )}
+        </div>
+    );
+}
+
 export default function AppRunner({ app, isOwner, onClose, standalone, autoInstall }) {
     useJobs(); // re-render when a job for this app starts or ends
     const job = jobFor(app.id);
     const [menu, setMenu] = useState(false);
     const [sharing, setSharing] = useState(false);
+    const [reloads, setReloads] = useState(0); // bumped after "Reset saved data"
     const installState = useInstallState();
     const [installing, setInstalling] = useState(!!autoInstall);
     const canInstall = standalone && (installState === "prompt" || installState === "ios");
@@ -112,8 +143,8 @@ export default function AppRunner({ app, isOwner, onClose, standalone, autoInsta
 
             <div className="relative flex-1 min-h-0">
                 {isOwner ? <RunnerKnock /> : null}
-                {job && <WorkingBanner job={job} />}
-                <AppFrame key={app.id + ":" + (app.current || app.version || 0)} app={app} html={html} secrets={isOwner ? currentSecrets(app) : null} who={app.who} role={isOwner ? "owner" : "member"} onError={onError} onNotify={onNotify} onHost={onHost} />
+                {job ? <WorkingBanner job={job} /> : <WhatsNew key={app.id + ":" + (app.current || app.version || 0)} app={app} />}
+                <AppFrame key={app.id + ":" + (app.current || app.version || 0) + ":" + reloads} app={app} html={html} secrets={isOwner ? currentSecrets(app) : null} who={app.who} role={isOwner ? "owner" : "member"} onError={onError} onNotify={onNotify} onHost={onHost} />
 
                 {error && isOwner && !job && (
                     <div className="fx-float-in absolute inset-x-3 bottom-3 z-10 flex items-center gap-2 bg-[#1f1416]/95 border border-[#5a2a33] rounded-2xl pl-3.5 pr-1.5 py-1.5 shadow-2xl backdrop-blur" style={{ marginBottom: "env(safe-area-inset-bottom)" }}>
@@ -130,11 +161,11 @@ export default function AppRunner({ app, isOwner, onClose, standalone, autoInsta
             </div>
 
             {menu && isOwner && (
-                <AppMenuSheet app={app} lastError={error} onClearError={() => setError(null)} onClose={() => setMenu(false)} onDeleted={onClose} />
+                <AppMenuSheet app={app} lastError={error} onClearError={() => setError(null)} onClose={() => setMenu(false)} onDeleted={onClose} onReset={() => setReloads((n) => n + 1)} />
             )}
             {sharing && isOwner && <ShareSheet app={app} onClose={() => setSharing(false)} />}
             {installing && standalone && installState !== "installed" && <InstallSheet app={app} onClose={() => setInstalling(false)} />}
-            {menu && !isOwner && <GuestAppSheet app={app} onClose={() => setMenu(false)} onRemoved={onClose} />}
+            {menu && !isOwner && <GuestAppSheet app={app} onClose={() => setMenu(false)} onRemoved={onClose} onReset={() => setReloads((n) => n + 1)} />}
         </div>
     );
 }

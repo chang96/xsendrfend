@@ -51,6 +51,14 @@ function restoreMine() {
         changed();
     } catch (e) {}
 }
+// Last failed change per app, kept until the next success, so it isn't lost with a toast
+const failKey = () => "faax_app_fail_" + (getAlias() || "");
+function readFails() { try { return JSON.parse(localStorage.getItem(failKey()) || "{}"); } catch (e) { return {}; } }
+function writeFails(f) { try { localStorage.setItem(failKey(), JSON.stringify(f)); } catch (e) {} }
+export const failureFor = (appId) => readFails()[appId] || null;
+export function clearFailure(appId) { const f = readFails(); if (f[appId]) { delete f[appId]; writeFails(f); changed(); } }
+function setFailure(appId, v) { const f = readFails(); f[appId] = v; writeFails(f); }
+
 const removeJob = (id) => { jobs = jobs.filter((j) => j.id !== id); persistMine(); changed(); };
 
 async function finish(job, app) {
@@ -66,8 +74,9 @@ async function finish(job, app) {
         const latest = getApp(job.appId);
         if (!latest) return;
         const saved = await saveApp(addVersion(latest, app));
+        clearFailure(job.appId);
         shareToRoom(sock, saved);
-        toast({ text: `✦ v${saved.current} · ${(app.note || (job.fix ? "Fixed" : "Updated")).slice(0, 48)}`, ms: 5000 });
+        toast({ text: `✦ v${saved.current} · ${(app.note || (job.fix ? "Fixed" : "Updated")).slice(0, 48)}`, actionLabel: "Open", action: () => requestOpen(saved.id), ms: 7000 });
     }
 }
 
@@ -84,7 +93,11 @@ function onJobEvent(e) {
     removeJob(job.id); // done or error: either way it's over (only once, even if the event repeats)
     if (!job.mine) return; // the device that asked saves it; the app reaches this device through sync
     if (e.state === "done" && e.app) finish(job, e.app);
-    else toast({ text: errorText(e.error, e.detail), ms: 12000, tone: "error" });
+    else {
+        const text = errorText(e.error, e.detail);
+        if (job.kind === "change" && job.appId) { setFailure(job.appId, { text, prompt: job.prompt, fix: !!job.fix, at: Date.now() }); changed(); }
+        toast({ text, ms: 12000, tone: "error" });
+    }
 }
 
 let sock = null;
@@ -104,7 +117,12 @@ async function startJob(ws, job, payload) {
     jobs.push({ ...job, mine: true, startedAt: Date.now(), progress: { text: "Reading your idea" } });
     persistMine(); changed();
     const res = await ws.request("apps:build", { ...payload, jobId: job.id, appId: job.appId }, 20000);
-    if (!res.ok) { removeJob(job.id); toast({ text: errorText(res.error, res.detail), ms: 9000, tone: "error" }); }
+    if (!res.ok) {
+        removeJob(job.id);
+        const text = errorText(res.error, res.detail);
+        if (job.kind === "change" && job.appId) { setFailure(job.appId, { text, prompt: job.prompt, fix: !!job.fix, at: Date.now() }); changed(); }
+        toast({ text, ms: 9000, tone: "error" });
+    }
 }
 
 export function shareToRoom(socket, app) {

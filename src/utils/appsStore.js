@@ -123,7 +123,7 @@ export function addVersion(app, built, extra = {}) {
         ...app, ...extra,
         name: built.name || app.name, glyph: built.glyph || app.glyph, bg: built.bg || app.bg, fg: built.fg || app.fg,
         summary: built.summary || app.summary, spec: built.spec || app.spec,
-        versions: [...(app.versions || []), { v: n, html: built.html, secrets: built.secrets || null, note: built.note || "Updated", at: Date.now() }],
+        versions: [...(app.versions || []), { v: n, html: built.html, secrets: built.secrets || null, note: built.note || "Updated", changes: built.changes || [], at: Date.now() }],
         current: n,
     };
 }
@@ -201,7 +201,22 @@ export async function applyRemoteData(entries) {
 // ------------------------------------------------------------------ guest: apps shared into the room
 export function bundleFor(app) {
     return { id: app.id, name: app.name, glyph: app.glyph, bg: app.bg, fg: app.fg, summary: app.summary, who: app.who,
-        version: app.current, html: currentHtml(app), keep: app.shared === "keep" };
+        version: app.current, html: currentHtml(app), keep: app.shared === "keep", ...whatsNew(app) };
+}
+
+// The current version's note + "what you'll notice" list (shown once in the app after an update)
+export function whatsNew(app) {
+    if (!app) return {};
+    if (!app.versions) return { note: app.note || "", changes: app.changes || [] }; // guest copy
+    const v = app.versions.find((x) => x.v === app.current) || {};
+    return { note: v.note || "", changes: v.changes || [] };
+}
+
+// Wipe what an app saved on this device (and, for owners, on their other devices too)
+export async function resetAppData(appId) {
+    const keys = await dataKeys(appId);
+    for (const k of keys) await dataSet(appId, k, null, { remove: true });
+    return keys.length;
 }
 
 export async function receiveShared(app, from) {

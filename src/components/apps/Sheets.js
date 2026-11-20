@@ -1,9 +1,9 @@
 import { useContext, useState } from "react";
 import { WebSocketContext } from "../../utils/websocket";
-import { appPath, deleteApp, forgetShared, getAlias, saveApp } from "../../utils/appsStore";
+import { appPath, deleteApp, forgetShared, getAlias, resetAppData, saveApp } from "../../utils/appsStore";
 import { InviteBody } from "../alias/InviteSheet";
 import { Sheet, haptic } from "../tasks/ui";
-import { buildChange, errorText, jobFor, planApp, setAppSharing, shareToRoom, toast } from "./jobs";
+import { buildChange, clearFailure, errorText, failureFor, jobFor, planApp, setAppSharing, shareToRoom, toast } from "./jobs";
 import { AppIcon, Segmented, Sparkle, Spinner, Toggle, whoLabel } from "./ui";
 
 const ago = (t) => {
@@ -103,7 +103,28 @@ const SHARE_HINT = {
 };
 
 // ✦ menu for the owner: improve, fix, versions, share, rename, delete
-export function AppMenuSheet({ app, lastError, onClearError, onClose, onDeleted }) {
+// "Reset saved data": two taps, then the app restarts with nothing saved
+function ResetRow({ app, label, hint, onReset, close }) {
+    const [confirm, setConfirm] = useState(false);
+    const reset = async () => {
+        if (!confirm) { setConfirm(true); return; }
+        const n = await resetAppData(app.id);
+        toast({ text: n ? "Saved data cleared. The app starts fresh." : "Nothing was saved yet.", ms: 4000 });
+        close();
+        onReset && onReset();
+    };
+    return (
+        <button onClick={reset} onBlur={() => setConfirm(false)}
+            className={`w-full text-left rounded-2xl px-3.5 py-2.5 border transition-colors ${confirm ? "border-[#ffb44c]/60 bg-[#ffb44c]/10" : "border-[#26262b] bg-[#151517] hover:border-[#3a3a42]"}`}>
+            <span className={`block text-[12.5px] font-semibold ${confirm ? "text-[#ffcf8a]" : "text-gray-200"}`}>{confirm ? "Tap again to clear it" : label}</span>
+            <span className="block text-[10.5px] text-gray-500 mt-0.5">{hint}</span>
+        </button>
+    );
+}
+
+const VAGUE = /^(please\s+)?(improve|update|fix|enhance|make)?\s*(it|this|the app)?\s*(better|more|nicer|good|again|pls|please)?[.!\s]*$/i;
+
+export function AppMenuSheet({ app, lastError, onClearError, onClose, onDeleted, onReset }) {
     const ws = useContext(WebSocketContext);
     const [ask, setAsk] = useState("");
     const [askFirst, setAskFirst] = useState(false);
@@ -112,6 +133,8 @@ export function AppMenuSheet({ app, lastError, onClearError, onClose, onDeleted 
     const [name, setName] = useState(app.name);
     const [confirmDelete, setConfirmDelete] = useState(false);
     const busy = !!jobFor(app.id);
+    const failed = !busy ? failureFor(app.id) : null;
+    const vague = ask.trim().length > 0 && (VAGUE.test(ask.trim()) || ask.trim().split(/\s+/).length < 3);
     const versions = [...(app.versions || [])].sort((a, b) => b.v - a.v);
     const ideas = app.who === "me" ? ["Make it prettier", "Add a dark mode", "Remember more history"] : ["Add a scoreboard", "Add sound and confetti", "Let the owner reset rounds"];
 
@@ -170,6 +193,18 @@ export function AppMenuSheet({ app, lastError, onClearError, onClose, onDeleted 
                         </div>
                     )}
 
+                    {failed && (
+                        <div className="rounded-2xl px-3.5 py-3 border border-[#ff6b8b]/35 bg-[#ff6b8b]/[0.06]">
+                            <p className="text-[12px] font-semibold text-[#ffb3be]">Your last change didn't go through</p>
+                            <p className="text-[11px] text-[#ff8fa3]/85 mt-0.5 leading-snug">{failed.text}</p>
+                            {failed.prompt && <p className="text-[10.5px] text-gray-500 mt-1 truncate">You asked: “{failed.prompt}”</p>}
+                            <div className="flex gap-2 mt-2">
+                                {failed.prompt && <button onClick={() => { buildChange(ws, app.id, { prompt: failed.prompt, fix: failed.fix }); clearFailure(app.id); close(); }} className="h-8 px-3 rounded-xl bg-[#ff3b5c] text-white text-[11.5px] font-semibold">Try again</button>}
+                                <button onClick={() => { setAsk(failed.prompt || ""); clearFailure(app.id); }} className="h-8 px-3 rounded-xl text-[11.5px] font-semibold text-gray-300 hover:text-white">Edit request</button>
+                            </div>
+                        </div>
+                    )}
+
                     {lastError && !busy && (
                         <button onClick={() => fix(close)} className="w-full text-left flex items-start space-x-2.5 rounded-2xl px-3.5 py-3 border border-[#ff6b8b]/40 bg-[#ff6b8b]/[0.07] hover:bg-[#ff6b8b]/[0.12] transition-colors">
                             <span className="text-[#ff8fa3] text-sm leading-none mt-0.5">!</span>
@@ -199,6 +234,9 @@ export function AppMenuSheet({ app, lastError, onClearError, onClose, onDeleted 
                                 {planning ? <Spinner className="w-4 h-4" /> : "Apply"}
                             </button>
                         </div>
+                        {vague && (
+                            <p className="text-[10.5px] text-[#ffcf8a] mt-1.5 px-0.5 leading-snug">Tip: say exactly what should change, e.g. "add 5 lessons on joins with typed exercises". If you leave it open, a few improvements will be picked for you.</p>
+                        )}
                         <div className="flex flex-wrap gap-1.5 mt-2">
                             {ideas.map((x) => (
                                 <button key={x} onClick={() => setAsk(x)} className="text-[11px] px-2.5 py-1 rounded-full border border-[#2f2f35] text-gray-400 hover:text-white hover:border-[#45454d] transition-colors">{x}</button>
@@ -238,6 +276,8 @@ export function AppMenuSheet({ app, lastError, onClearError, onClose, onDeleted 
                                 className="flex-1 min-w-0 h-10 rounded-xl border border-[#2c2c31] bg-[#111113] text-white text-[13px] px-3 outline-none focus:border-[#4d63ff] transition-colors" />
                         </div>
                     </div>
+
+                    <ResetRow app={app} label="Reset saved data" hint="Clears progress, scores and entries on all your devices. The app itself stays." onReset={onReset} close={close} />
 
                     <button onClick={() => remove(close)} onBlur={() => setConfirmDelete(false)}
                         className={`w-full h-10 rounded-2xl text-[12px] font-semibold border transition-colors ${confirmDelete ? "bg-[#ff3b5c] border-transparent text-white" : "border-[#3a2a2e] text-[#ff8fa3] hover:bg-[#ff6b8b]/10"}`}>
@@ -318,7 +358,7 @@ export function ShareSheet({ app, onClose }) {
 }
 
 // What a guest sees in the ✦ menu
-export function GuestAppSheet({ app, onClose, onRemoved }) {
+export function GuestAppSheet({ app, onClose, onRemoved, onReset }) {
     return (
         <Sheet title={app.name} subtitle={`Shared by ${app.from || "the owner"}${app.kept ? " · kept on this device" : " · live while you're here"}`} onClose={onClose}>
             {(close) => (
@@ -329,6 +369,7 @@ export function GuestAppSheet({ app, onClose, onRemoved }) {
                     </div>
                     <p className="text-[11px] text-gray-500 leading-relaxed">It runs sealed off inside faax: it can't reach the internet, your files or other sites. What you save in it stays on this device.</p>
                     {app.kept && <InstallRow app={app} />}
+                    <ResetRow app={app} label="Reset my data in this app" hint="Clears what you saved in it on this device." onReset={onReset} close={close} />
                     {app.kept && (
                         <button onClick={() => { forgetShared(app.id); close(); onRemoved && onRemoved(); }} className="w-full h-10 rounded-2xl text-[12px] font-semibold border border-[#3a2a2e] text-[#ff8fa3] hover:bg-[#ff6b8b]/10 transition-colors">
                             Remove from this device

@@ -4,7 +4,7 @@ import { useContext, useEffect, useRef, useState } from "react";
 import { WebSocketContext } from "../../utils/websocket";
 import { clearUnseen, getApp, onOpenRequest, takePendingOpen } from "../../utils/appsStore";
 import { haptic } from "../tasks/ui";
-import { buildNew, errorText, planApp, toast } from "./jobs";
+import { buildNew, errorText, failureFor, jobFor, planApp, toast } from "./jobs";
 import { useApps, useJobs } from "./hooks";
 import { AppMenuSheet, PlanSheet } from "./Sheets";
 import AppRunner from "./AppRunner";
@@ -37,6 +37,12 @@ function BuildingTile({ job }) {
             </div>
         </div>
     );
+}
+
+// An improvement running on this app: real progress under its name
+function TileProgress({ job }) {
+    const { stage, time } = useStage(job);
+    return <span key={stage} className="fx-float-in text-[9.5px] text-[#a9b3ff] truncate max-w-full px-1 -mt-1">{stage} · {time}</span>;
 }
 
 function Describe({ onAsked }) {
@@ -154,11 +160,15 @@ export default function AppsView({ isOwner, onExit }) {
                                     aria-label={`Open ${a.name}`}
                                     className="apps-tile w-full flex flex-col items-center gap-2 px-1.5 pt-3.5 pb-3 rounded-[18px] bg-[#18181b] border border-[#26262b] min-w-0"
                                 >
-                                    <AppIcon app={a} size={52} />
-                                    <span className="text-[12px] font-semibold text-white truncate max-w-full px-1">{a.name}</span>
-                                    <span className={`text-[9.5px] truncate max-w-full px-1 -mt-1 ${isOwner && a.shared && a.shared !== "off" ? "text-[#8e9bff]" : "text-gray-500"}`}>
-                                        {isOwner ? subtitle(a) : a.kept ? "Kept" : "Live"}
+                                    <span className={`relative ${jobFor(a.id) ? "apps-breathe" : ""}`}>
+                                        <AppIcon app={a} size={52} />
+                                        {jobFor(a.id) && <span className="absolute -inset-1 rounded-[18px] border-2 border-[#4d63ff]/70 border-t-transparent fx-spin" />}
                                     </span>
+                                    <span className="text-[12px] font-semibold text-white truncate max-w-full px-1">{a.name}</span>
+                                    {jobFor(a.id) ? <TileProgress job={jobFor(a.id)} /> : (
+                                    <span className={`text-[9.5px] truncate max-w-full px-1 -mt-1 ${isOwner && a.shared && a.shared !== "off" ? "text-[#8e9bff]" : failureFor(a.id) ? "text-[#ff8fa3]" : "text-gray-500"}`}>
+                                        {isOwner && failureFor(a.id) ? "Last change failed" : isOwner ? subtitle(a) : a.kept ? "Kept" : "Live"}
+                                    </span>)}
                                 </button>
                                 {isOwner && (
                                     <button
