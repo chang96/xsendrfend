@@ -16,6 +16,7 @@ import {
 } from "./appsStore"
 import { attachJobs, toast as appsToast } from "../components/apps/jobs"
 import { refreshPush } from "./push"
+import { receiveNote } from "./stickiesStore"
 
 const ENDPOINT = process.env.REACT_APP_SOCKET_URL || "https://faax.sandymoon.com.ng"
 const WebSocketContext = createContext(null)
@@ -166,6 +167,7 @@ export default ({ children }) => {
 
     socket.on("connect", () => {
       console.log("Socket.io connected successfully!");
+      socket.emit("sticky:name", { name: deviceLabel() }); // how this device shows up in "Sync to…"
       dispatch(connectionEstablished(true));
       if (currentAuth && currentAuth.type === "owner") {
         socket.emit("alias:enter", { alias: currentAuth.alias, deviceId: currentAuth.deviceId, key: currentAuth.key }, (res) => {
@@ -237,6 +239,12 @@ export default ({ children }) => {
     socket.on("alias:knock", (data) => {
       setKnocks(prev => prev.some(k => k.requestId === data.requestId) ? prev : [...prev, data]);
     });
+    // A sticky note someone synced to this device (only ever sent when they tap Sync and pick us)
+    socket.on("sticky:incoming", (d) => {
+      const n = d && receiveNote(d.note, d.from);
+      if (n) appsToast({ text: `${n.from} sent you a sticky note`, actionLabel: "Open", action: () => window.dispatchEvent(new CustomEvent("faax:open-view", { detail: "stickies" })), ms: 7000 });
+    });
+
     socket.on("alias:guest-joined", (data) => {
       if (data && data.name) appsToast({ text: `${data.name} joined with an access code`, ms: 4000 });
     });

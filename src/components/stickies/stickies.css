@@ -1,0 +1,41 @@
+/* Caveat (SIL OFL 1.1, see src/assets/fonts/Caveat-OFL.txt), self-hosted so handwriting works offline too */
+@font-face { font-family: "Caveat"; font-style: normal; font-weight: 400; font-display: swap; src: url("../../assets/fonts/caveat-latin-400-normal.woff2") format("woff2");
+    unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: "Caveat"; font-style: normal; font-weight: 400; font-display: swap; src: url("../../assets/fonts/caveat-latin-ext-400-normal.woff2") format("woff2");
+    unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+@font-face { font-family: "Caveat"; font-style: normal; font-weight: 600; font-display: swap; src: url("../../assets/fonts/caveat-latin-600-normal.woff2") format("woff2");
+    unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+
+/* Sticky notes board: paper pads in soft colours, handwriting by default */
+.stk { --hand: "Caveat", "Patrick Hand", "Comic Neue", "Segoe Print", "Bradley Hand", cursive; }
+.stk-board { column-width: 250px; column-gap: 18px; }
+.stk-board.is-narrow { column-width: 300px; column-gap: 12px; }
+.stk-card {
+    break-inside: avoid; margin-bottom: 18px; position: relative;
+    border-radius: 3px 3px 6px 3px;
+    /* a little stack of sheets underneath, like a pad */
+    box-shadow: 2px 2px 0 var(--edge), 4px 4px 0 color-mix(in srgb, var(--edge) 80%, #000), 6px 8px 18px -8px rgba(0, 0, 0, 0.55);
+    transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.18s ease;
+    animation: stk-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.stk-card:focus-within { transform: translateY(-2px); box-shadow: 2px 2px 0 var(--edge), 4px 4px 0 color-mix(in srgb, var(--edge) 80%, #000), 10px 14px 28px -10px rgba(0, 0, 0, 0.65); }
+@keyframes stk-in { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: none; } }
+.stk-hand .stk-text, .stk-hand .stk-title, .stk-hand .stk-date { font-family: var(--hand); }
+.stk-hand .stk-text { font-size: 21px; line-height: 1.2; }
+.stk-hand .stk-title { font-size: 30px; }
+.stk-plain .stk-text { font-size: 14px; line-height: 1.45; }
+.stk-plain .stk-title { font-size: 18px; font-weight: 700; }
+.stk-big.stk-hand .stk-text { font-size: 26px; }
+.stk-big.stk-plain .stk-text { font-size: 17px; }
+.stk-big.stk-hand .stk-title { font-size: 40px; }
+.stk-line { border-bottom: 1px solid color-mix(in srgb, var(--ink) 35%, transparent); }
+.stk-text { outline: none; min-height: 1.3em; word-break: break-word; white-space: pre-wrap; }
+.stk-text:empty::before { content: attr(data-placeholder); opacity: 0.35; }
+.stk-text mark { background: color-mix(in srgb, #fff27a 85%, transparent); color: inherit; padding: 0 2px; border-radius: 2px; }
+.stk-done .stk-text { opacity: 0.6; }
+.stk-title { outline: none; background: transparent; border: 0; width: 100%; text-align: center; }
+.stk-title::placeholder { color: inherit; opacity: 0.35; }
+.stk-tool { opacity: 0.55; transition: opacity 0.15s ease, background-color 0.15s ease; }
+.stk-tool:hover, .stk-tool[aria-pressed="true"] { opacity: 1; background: color-mix(in srgb, var(--ink) 12%, transparent); }
+.stk-bar { animation: stk-in 0.18s ease both; }
+@media (prefers-reduced-motion: reduce) { .stk-card, .stk-bar { animation: none; transition: none; } }

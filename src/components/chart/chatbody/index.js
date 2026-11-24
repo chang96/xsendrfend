@@ -8,6 +8,7 @@ import RoomMenu from "../../alias/RoomMenu"
 import KnockPrompt from "../../alias/KnockPrompt"
 import TasksView from "../../tasks/TasksView"
 import AppsView from "../../apps/AppsView"
+import StickiesView from "../../stickies/StickiesView"
 import { AppsToastHost } from "../../apps/ui"
 import { toast as appsToast } from "../../apps/jobs"
 import { useApps } from "../../apps/hooks"
@@ -34,7 +35,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
         try {
             const p = new URLSearchParams(window.location.search);
             const v = p.get("view");
-            if (["chat", "notes", "tasks", "apps"].includes(v)) {
+            if (["chat", "notes", "tasks", "apps", "stickies"].includes(v)) {
                 p.delete("view");
                 const qs = p.toString();
                 window.history.replaceState(null, "", window.location.pathname + (qs ? "?" + qs : ""));
@@ -43,7 +44,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
         } catch (e) {}
         try {
             const saved = window.localStorage.getItem("faax_view_mode");
-            return ["chat", "notes", "tasks", "apps"].includes(saved) ? saved : "chat";
+            return ["chat", "notes", "tasks", "apps", "stickies"].includes(saved) ? saved : "chat";
         } catch (e) {
             return "chat";
         }
@@ -67,6 +68,13 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
     // Tasks belong to the owner of an alias room; apps live in alias rooms; anyone else falls back to chat
     const mode = (viewMode === "tasks" && !isOwner) || (viewMode === "apps" && !aliasSession) ? "chat" : viewMode;
     const { unseen: unseenApps } = useApps();
+
+    // "Open" on a toast about a sticky note that just arrived
+    useEffect(() => {
+        const onOpen = (e) => { if (e.detail) chooseView(e.detail); };
+        window.addEventListener("faax:open-view", onOpen);
+        return () => window.removeEventListener("faax:open-view", onOpen);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     // A notification was tapped while this room was already open in a tab
     useEffect(() => {
@@ -145,14 +153,14 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
     };
 
     const handleDragEnter = (e) => {
-        if (!isFileDrag(e) || mode === "tasks" || mode === "apps") return;
+        if (!isFileDrag(e) || mode === "tasks" || mode === "apps" || mode === "stickies") return;
         e.preventDefault();
         dragCounterRef.current += 1;
         setIsDragging(true);
     };
 
     const handleDragOver = (e) => {
-        if (!isFileDrag(e) || mode === "tasks" || mode === "apps") return;
+        if (!isFileDrag(e) || mode === "tasks" || mode === "apps" || mode === "stickies") return;
         e.preventDefault(); // required so the browser allows the drop
         e.dataTransfer.dropEffect = "copy";
         if (mode === "notes") {
@@ -162,7 +170,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
     };
 
     const handleDragLeave = (e) => {
-        if (!isFileDrag(e) || mode === "tasks" || mode === "apps") return;
+        if (!isFileDrag(e) || mode === "tasks" || mode === "apps" || mode === "stickies") return;
         dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
         if (dragCounterRef.current === 0) {
             setIsDragging(false);
@@ -171,7 +179,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
     };
 
     const handleDrop = (e) => {
-        if (!isFileDrag(e) || mode === "tasks" || mode === "apps") return;
+        if (!isFileDrag(e) || mode === "tasks" || mode === "apps" || mode === "stickies") return;
         e.preventDefault();
         dragCounterRef.current = 0;
         setIsDragging(false);
@@ -1049,7 +1057,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                 <div className="flex bg-[#121212] p-0.5 rounded-lg border border-[#2b2b2b]">
                     <button
                         onClick={() => chooseView("notes")}
-                        title="Sticky Notes Stack"
+                        title="Room notes (shared live with the room)"
                         className={`p-1.5 rounded transition-all duration-150 flex items-center justify-center ${
                             mode === "notes"
                                 ? "bg-[#001AFF] text-white shadow-md"
@@ -1107,6 +1115,20 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                             <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                         </svg>
                     </button>
+                    <button
+                        onClick={() => chooseView("stickies")}
+                        title="Sticky notes"
+                        aria-label="Sticky notes"
+                        className={`p-1.5 rounded transition-all duration-150 flex items-center justify-center ${
+                            mode === "stickies"
+                                ? "bg-[#001AFF] text-white shadow-md"
+                                : "text-gray-500 hover:text-white bg-transparent"
+                        }`}
+                    >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 4h14a1 1 0 011 1v9l-6 6H5a1 1 0 01-1-1V5a1 1 0 011-1zM14 20v-5a1 1 0 011-1h5M8 9h8M8 13h4" />
+                        </svg>
+                    </button>
                 </div>
             </div>
 
@@ -1123,6 +1145,9 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                         </div>
                         <div>
                             <span className="font-bold text-white">✅ Tasks:</span> On your own link: dump to-dos as they come, then Organize groups, orders and de-duplicates them across your devices.
+                        </div>
+                        <div>
+                            <span className="font-bold text-white">🗒 Sticky notes:</span> Your own thoughts, kept in this browser. Tap Sync on a note to send it to a device you pick.
                         </div>
                         <div>
                             <span className="font-bold text-white">✦ Apps:</span> On a named room: describe a small app (a game, a quiz, a tracker) and run it with whoever's in the room.
@@ -1363,6 +1388,9 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
             ) : mode === "tasks" ? (
                 /* TASKS MODE: owner-only brain dump + organized list (brings its own composer) */
                 <TasksView />
+            ) : mode === "stickies" ? (
+                /* STICKY NOTES: kept in this browser; sync on demand */
+                <StickiesView />
             ) : mode === "apps" ? (
                 /* APPS MODE: describe -> build -> run small apps in this room */
                 <AppsView isOwner={isOwner} onExit={() => chooseView("chat")} />
@@ -1514,7 +1542,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                         <span>Create Note</span>
                     </button>
                 </div>
-            ) : mode === "tasks" || mode === "apps" ? (
+            ) : mode === "tasks" || mode === "apps" || mode === "stickies" ? (
                 /* TASKS / APPS: no chat composer */
                 null
             ) : (
