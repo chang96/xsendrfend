@@ -39,3 +39,13 @@
 .stk-tool:hover, .stk-tool[aria-pressed="true"] { opacity: 1; background: color-mix(in srgb, var(--ink) 12%, transparent); }
 .stk-bar { animation: stk-in 0.18s ease both; }
 @media (prefers-reduced-motion: reduce) { .stk-card, .stk-bar { animation: none; transition: none; } }
+
+/* free board: notes sit where you drop them */
+.stk-free { position: relative; }
+.stk-free > [data-note] { position: absolute; width: 270px; }
+.stk-free > [data-note] .stk-card { margin-bottom: 0; }
+.stk-free.is-plainwide > [data-note].is-plain { width: 300px; }
+.stk-handle { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+.stk-dragging { cursor: grabbing; z-index: 9999 !important; }
+.stk-dragging .stk-card { transform: rotate(-1.5deg) scale(1.02); box-shadow: 2px 2px 0 var(--edge), 4px 4px 0 color-mix(in srgb, var(--edge) 80%, #000), 18px 24px 40px -12px rgba(0, 0, 0, 0.7); }
+.stk-body div, .stk-body p { margin: 0; }

@@ -1,7 +1,9 @@
 // Sticky notes: kept in THIS browser only (localStorage). A note reaches another device only when
 // you tap Sync on it and pick where it goes; the copy that arrives is then that device's own.
 //
-// Note: { id, color, title, lines: [{ id, html, mark: null|"todo"|"done"|"x" }],
+// Note: { id, kind: "list"|"plain", color, title, lines: [{ id, html, mark: null|"todo"|"done"|"x" }],
+//         body (plain notes, html), tags: [string], z (stacking),
+//         layouts: { wide: {x,y}, narrow: {x,y} }  (where it sits on a wide board vs a phone-width one),
 //         createdAt, updatedAt, collapsed, from?, syncedTo?: [{ name, at }] }
 const KEY = "faax_stickies";
 const PREFS = "faax_stickies_prefs";
@@ -33,10 +35,17 @@ function changed() { persist(); listeners.forEach((fn) => fn(notes)); }
 export const getNotes = () => notes;
 export function subscribeNotes(fn) { listeners.add(fn); return () => listeners.delete(fn); }
 
-export function addNote() {
+export const topZ = () => Math.max(0, ...notes.map((n) => n.z || 0)) + 1;
+
+export function addNote(kind = "list", pos = null, key = "wide") {
     const used = new Set(notes.slice(0, COLORS.length - 1).map((n) => n.color));
     const color = (COLORS.find((c) => !used.has(c.id)) || COLORS[notes.length % COLORS.length]).id;
-    const n = { id: uid("sn_"), color, title: "", lines: [newLine()], createdAt: Date.now(), updatedAt: Date.now(), collapsed: false };
+    const n = {
+        id: uid("sn_"), kind: kind === "plain" ? "plain" : "list", color, title: "",
+        lines: kind === "plain" ? [] : [newLine()], body: "", tags: [],
+        createdAt: Date.now(), updatedAt: Date.now(), collapsed: false, z: topZ(),
+        layouts: pos ? { [key]: { x: Math.round(pos.x), y: Math.round(pos.y) } } : {},
+    };
     notes = [n, ...notes];
     changed();
     return n;
@@ -45,6 +54,62 @@ export function updateNote(id, patch) {
     notes = notes.map((n) => (n.id === id ? { ...n, ...(typeof patch === "function" ? patch(n) : patch), updatedAt: Date.now() } : n));
     changed();
 }
+// Checklist <-> plain note, keeping the words
+export function convertNote(id) {
+    updateNote(id, (n) => {
+        if ((n.kind || "list") === "list") {
+            const body = (n.lines || []).map((l) => `<div>${({ done: "✓ ", x: "✗ " })[l.mark] || ""}${l.html || "<br>"}</div>`).join("");
+            return { kind: "plain", body, lines: [] };
+        }
+        const box = document.createElement("div");
+        box.innerHTML = sanitize(n.body || "");
+        const parts = [];
+        let cur = "";
+        box.childNodes.forEach((c) => {
+            if (c.nodeType === 1 && (c.tagName === "DIV" || c.tagName === "P")) { if (cur) parts.push(cur); cur = ""; parts.push(c.innerHTML); }
+            else if (c.nodeType === 1 && c.tagName === "BR") { parts.push(cur); cur = ""; }
+            else cur += c.nodeType === 3 ? c.textContent : c.outerHTML;
+        });
+        if (cur) parts.push(cur);
+        const lines = parts.map((h) => h.replace(/<br>$/i, "")).filter((h) => plainText(h).trim()).map((h) => {
+            const t = plainText(h).trim();
+            const mark = t.startsWith("✓") ? "done" : t.startsWith("✗") ? "x" : "todo";
+            return newLine(mark, h.replace(/^\s*[✓✗]\s*/, ""));
+        });
+        return { kind: "list", lines: lines.length ? lines : [newLine()], body: "" };
+    });
+}
+
+// ---- tags
+export const cleanTag = (t) => String(t || "").trim().replace(/^#+/, "").toLowerCase().replace(/\s+/g, "-").replace(/[^\p{L}\p{N}_-]/gu, "").slice(0, 24);
+export function addTag(id, tag) {
+    const t = cleanTag(tag);
+    if (!t) return;
+    updateNote(id, (n) => ({ tags: (n.tags || []).includes(t) ? n.tags : [...(n.tags || []), t].slice(0, 8) }));
+}
+export function removeTag(id, tag) { updateNote(id, (n) => ({ tags: (n.tags || []).filter((x) => x !== tag) })); }
+export const allTags = () => [...new Set(notes.flatMap((n) => n.tags || []))].sort();
+
+// ---- positions: one arrangement for wide boards and one for phone-width boards
+// (saved without bumping updatedAt)
+export function posOf(n, key) {
+    const p = n.layouts && n.layouts[key];
+    if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) return p;
+    if (key === "wide" && Number.isFinite(n.x) && Number.isFinite(n.y)) return { x: n.x, y: n.y }; // older notes
+    return null;
+}
+export function moveNotes(positions, key = "wide") {
+    const m = new Map(positions.map((p) => [p.id, p]));
+    notes = notes.map((n) => {
+        const p = m.get(n.id);
+        if (!p) return n;
+        const layouts = { ...(n.layouts || {}) };
+        if (Number.isFinite(p.x) && Number.isFinite(p.y)) layouts[key] = { x: Math.round(p.x), y: Math.round(p.y) };
+        return { ...n, layouts, ...(p.z ? { z: p.z } : {}) };
+    });
+    changed();
+}
+
 export function deleteNote(id) { notes = notes.filter((n) => n.id !== id); changed(); }
 export function restoreNote(note, index = 0) { notes = [...notes.slice(0, index), note, ...notes.slice(index)]; changed(); }
 
@@ -52,21 +117,24 @@ export function restoreNote(note, index = 0) { notes = [...notes.slice(0, index)
 export function receiveNote(note, from) {
     if (!note || typeof note.id !== "string") return null;
     const clean = {
-        id: note.id, color: colorOf(note.color).id, title: String(note.title || "").slice(0, 120),
+        id: note.id, kind: note.kind === "plain" ? "plain" : "list", body: sanitize(note.body),
+        tags: (Array.isArray(note.tags) ? note.tags : []).map(cleanTag).filter(Boolean).slice(0, 8),
+        color: colorOf(note.color).id, title: String(note.title || "").slice(0, 120),
         lines: (Array.isArray(note.lines) ? note.lines : []).slice(0, 300).map((l) => ({ id: String(l.id || uid("l_")), html: sanitize(l.html), mark: ["todo", "done", "x"].includes(l.mark) ? l.mark : null })),
         createdAt: Number(note.createdAt) || Date.now(), updatedAt: Date.now(), collapsed: false,
         from: String((from && from.name) || "Another device").slice(0, 40), receivedAt: Date.now(),
     };
-    if (!clean.lines.length) clean.lines = [newLine()];
+    if (!clean.lines.length && clean.kind === "list") clean.lines = [newLine()];
     const i = notes.findIndex((n) => n.id === clean.id);
-    notes = i >= 0 ? notes.map((n, k) => (k === i ? { ...clean, syncedTo: n.syncedTo } : n)) : [clean, ...notes];
+    // keep where it sits on this board; a new one finds a free spot when the board draws it
+    notes = i >= 0 ? notes.map((n, k) => (k === i ? { ...clean, layouts: n.layouts, x: n.x, y: n.y, z: n.z, syncedTo: n.syncedTo } : n)) : [{ ...clean, layouts: {}, z: topZ() }, ...notes];
     changed();
     return clean;
 }
 
 // what travels when you sync: content only
 export function outgoing(note) {
-    return { id: note.id, color: note.color, title: note.title, lines: note.lines, createdAt: note.createdAt };
+    return { id: note.id, kind: note.kind || "list", color: note.color, title: note.title, lines: note.lines, body: note.body || "", tags: note.tags || [], createdAt: note.createdAt };
 }
 
 // ---- preferences (handwriting on by default, board maximised or not)
@@ -76,7 +144,7 @@ export function getPrefs() {
 export function setPrefs(p) { try { localStorage.setItem(PREFS, JSON.stringify({ ...getPrefs(), ...p })); } catch (e) {} }
 
 // ---- inline formatting: only these tags survive (no attributes, no scripts)
-const ALLOWED = new Set(["B", "STRONG", "I", "EM", "U", "S", "STRIKE", "DEL", "MARK", "BR"]);
+const ALLOWED = new Set(["B", "STRONG", "I", "EM", "U", "S", "STRIKE", "DEL", "MARK", "BR", "DIV", "P"]);
 export function sanitize(html) {
     const box = document.createElement("div");
     box.innerHTML = String(html || "").slice(0, 20000);

@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { COLORS, colorOf, newLine, plainText, sanitize, updateNote } from "../../utils/stickiesStore";
+import { COLORS, addTag, allTags, colorOf, convertNote, newLine, plainText, removeTag, sanitize, updateNote } from "../../utils/stickiesStore";
 
 const Ico = ({ d, className = "w-4 h-4", sw = 2.2, fill = "none" }) => (
     <svg className={className} viewBox="0 0 24 24" fill={fill} stroke="currentColor" strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={d} /></svg>
@@ -47,6 +47,56 @@ function Line({ line, refFn, onInput, onKeyDown, onFocus, placeholder }) {
     );
 }
 
+// A plain note: one free-form body, write anything
+function PlainBody({ note, refFn, onInput, onFocus }) {
+    const el = useRef(null);
+    useLayoutEffect(() => {
+        if (el.current && document.activeElement !== el.current && el.current.innerHTML !== (note.body || "")) el.current.innerHTML = note.body || "";
+    }, [note.body]);
+    return (
+        <div
+            ref={(n) => { el.current = n; refFn(n); }}
+            className="stk-text stk-body min-h-[120px] px-1"
+            contentEditable suppressContentEditableWarning
+            data-placeholder="Write anything…"
+            onInput={() => onInput(el.current.innerHTML)}
+            onFocus={onFocus}
+            onPaste={(e) => { e.preventDefault(); document.execCommand("insertText", false, e.clipboardData.getData("text/plain")); }}
+        />
+    );
+}
+
+// #tags under a note
+function Tags({ note, ink }) {
+    const [adding, setAdding] = useState(false);
+    const [val, setVal] = useState("");
+    const tags = note.tags || [];
+    const listId = `tags-${note.id}`;
+    const commit = () => { if (val.trim()) addTag(note.id, val); setVal(""); };
+    return (
+        <div className="px-4 pb-2.5 flex flex-wrap items-center gap-1.5 font-sans">
+            {tags.map((t) => (
+                <span key={t} className="stk-tag inline-flex items-center h-6 pl-2 pr-1 rounded-full text-[11px] font-semibold" style={{ background: "rgba(255,255,255,0.55)", color: ink }}>
+                    #{t}
+                    <button onClick={() => removeTag(note.id, t)} aria-label={`Remove tag ${t}`} className="ml-0.5 w-4 h-4 rounded-full opacity-50 hover:opacity-100 flex items-center justify-center">×</button>
+                </span>
+            ))}
+            {adding ? (
+                <>
+                    <input autoFocus value={val} list={listId} placeholder="tag" aria-label="New tag"
+                        onChange={(e) => setVal(e.target.value.slice(0, 30))}
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === "," || e.key === " ") { e.preventDefault(); commit(); } else if (e.key === "Escape") { setAdding(false); setVal(""); } }}
+                        onBlur={() => { commit(); setAdding(false); }}
+                        className="h-6 w-24 px-2 rounded-full text-[11px] bg-white/70 outline-none" style={{ color: ink }} />
+                    <datalist id={listId}>{allTags().filter((t) => !tags.includes(t)).map((t) => <option key={t} value={t} />)}</datalist>
+                </>
+            ) : tags.length < 8 && (
+                <button onClick={() => setAdding(true)} className="h-6 px-2 rounded-full text-[11px] font-semibold opacity-50 hover:opacity-90" aria-label="Add a tag">+ tag</button>
+            )}
+        </div>
+    );
+}
+
 const caretAtStart = (el) => {
     const sel = window.getSelection();
     if (!sel.rangeCount || !sel.isCollapsed) return false;
@@ -60,7 +110,7 @@ const placeCaret = (el, atEnd = true) => {
     const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
 };
 
-export default function StickyNote({ note, handwriting, big, onExpand, onShrink, onSync, onDelete }) {
+export default function StickyNote({ note, handwriting, big, onExpand, onShrink, onSync, onDelete, dragProps }) {
     const c = colorOf(note.color);
     const refs = useRef({});
     const pendingFocus = useRef(null);
@@ -69,6 +119,7 @@ export default function StickyNote({ note, handwriting, big, onExpand, onShrink,
     const [menu, setMenu] = useState(false);
     const [confirmDel, setConfirmDel] = useState(false);
     const lines = note.lines || [];
+    const plain = note.kind === "plain";
 
     useEffect(() => {
         const p = pendingFocus.current;
@@ -133,16 +184,40 @@ export default function StickyNote({ note, handwriting, big, onExpand, onShrink,
         const next = { todo: "done", done: "x", x: "todo" }[line.mark] || "todo";
         updateNote(note.id, { lines: cur.map((l) => (l.id === line.id ? { ...l, mark: next } : l)) });
     };
-    const fmt = (cmd) => {
-        document.execCommand(cmd, false, null);
-        if (active && refs.current[active]) saveLine(active, refs.current[active].innerHTML);
+    const saveActive = () => {
+        if (active === "body" && refs.current.body) saveBody(refs.current.body.innerHTML);
+        else if (active && refs.current[active]) saveLine(active, refs.current[active].innerHTML);
+    };
+    const saveBody = (html) => {
+        clearTimeout(saveTimer.current);
+        const clean = sanitize(html);
+        saveTimer.current = setTimeout(() => updateNote(note.id, { body: clean }), 250);
+    };
+    const fmt = (cmd) => { document.execCommand(cmd, false, null); saveActive(); };
+    // Plain notes: ✓ / ✗ go at the start of the line the caret is on (tap again to remove, or swap)
+    const insertMark = (ch) => {
+        const sel = window.getSelection();
+        if (!sel.rangeCount) return;
+        sel.collapseToStart();
+        try { sel.modify("move", "backward", "paragraphboundary"); } catch (e) { try { sel.modify("move", "backward", "lineboundary"); } catch (err) {} }
+        const r = sel.getRangeAt(0);
+        const node = r.startContainer, off = r.startOffset;
+        const head = node.nodeType === 3 ? node.textContent.slice(off, off + 2) : "";
+        if (head === "✓ " || head === "✗ ") {
+            const rr = document.createRange(); rr.setStart(node, off); rr.setEnd(node, off + 2);
+            sel.removeAllRanges(); sel.addRange(rr);
+            document.execCommand(head[0] === ch ? "delete" : "insertText", false, head[0] === ch ? null : ch + " ");
+        } else {
+            document.execCommand("insertText", false, ch + " ");
+        }
+        saveActive();
     };
     const highlight = () => {
         const sel = window.getSelection();
         if (!sel.rangeCount || sel.isCollapsed) return;
         const box = document.createElement("div"); box.appendChild(sel.getRangeAt(0).cloneContents());
         document.execCommand("insertHTML", false, `<mark>${box.innerHTML}</mark>`);
-        if (active && refs.current[active]) saveLine(active, refs.current[active].innerHTML);
+        saveActive();
     };
     const addLine = () => {
         const cur = flush();
@@ -151,7 +226,7 @@ export default function StickyNote({ note, handwriting, big, onExpand, onShrink,
         updateNote(note.id, { lines: [...cur, nl] });
     };
 
-    const activeLine = lines.find((l) => l.id === active);
+    const activeLine = active === "body" ? { id: "body", mark: null } : lines.find((l) => l.id === active);
     const date = new Date(note.createdAt).toLocaleDateString(undefined, { day: "numeric", month: "short", year: new Date(note.createdAt).getFullYear() === new Date().getFullYear() ? undefined : "numeric" });
     const preview = lines.map((l) => plainText(l.html)).filter(Boolean);
     const tool = "stk-tool h-8 min-w-[32px] px-1.5 rounded-lg flex items-center justify-center text-[14px]";
@@ -165,7 +240,7 @@ export default function StickyNote({ note, handwriting, big, onExpand, onShrink,
             aria-label={note.title || "Sticky note"}
         >
             {/* header: date, tools */}
-            <div className="flex items-start justify-between pl-4 pr-1.5 pt-2.5">
+            <div className={`flex items-start justify-between pl-4 pr-1.5 pt-2.5 ${dragProps ? "stk-handle" : ""}`} {...(dragProps || {})} title={dragProps ? "Drag to move" : undefined}>
                 <span className="stk-date text-[13px] opacity-60 italic whitespace-nowrap">Date: {date}</span>
                 <div className="flex items-center -mr-0.5">
                     <button className={tool} title="Sync to a device" aria-label="Sync to a device" onClick={() => onSync(note)}><Ico d={I.sync} /></button>
@@ -182,6 +257,9 @@ export default function StickyNote({ note, handwriting, big, onExpand, onShrink,
 
             {menu && (
                 <div className="stk-bar mx-3 mt-1 mb-1 p-2 rounded-xl flex items-center gap-1.5 flex-wrap" style={{ background: "rgba(255,255,255,0.45)" }}>
+                    <button onClick={() => { convertNote(note.id); setMenu(false); }} className="h-7 px-2.5 rounded-lg text-[12px] font-semibold hover:bg-black/5 font-sans w-full text-left mb-0.5">
+                        {plain ? "Turn into a checklist" : "Turn into a plain note"}
+                    </button>
                     {COLORS.map((k) => (
                         <button key={k.id} title={k.id} aria-label={`Colour ${k.id}`} onClick={() => updateNote(note.id, { color: k.id })}
                             className="w-6 h-6 rounded-full border-2" style={{ background: k.bg, borderColor: k.id === note.color ? c.ink : k.edge }} />
@@ -208,9 +286,14 @@ export default function StickyNote({ note, handwriting, big, onExpand, onShrink,
 
             {note.collapsed && !big ? (
                 <button onClick={() => updateNote(note.id, { collapsed: false })} className="w-full text-left px-4 pb-3 pt-1">
-                    <span className="stk-text block truncate opacity-70">{preview[0] || "Empty note"}</span>
-                    <span className="block text-[11px] opacity-50 mt-0.5 font-sans">{lines.length} line{lines.length === 1 ? "" : "s"} · tap to unfold</span>
+                    <span className="stk-text block truncate opacity-70">{(plain ? plainText(note.body) : preview[0]) || "Empty note"}</span>
+                    <span className="block text-[11px] opacity-50 mt-0.5 font-sans">{plain ? "Plain note" : `${lines.length} line${lines.length === 1 ? "" : "s"}`} · tap to unfold</span>
                 </button>
+            ) : plain ? (
+                <div className={`px-3 pb-3 pt-1 ${big ? "flex-1 overflow-y-auto" : ""}`}>
+                    <PlainBody note={note} refFn={(n) => { if (n) refs.current.body = n; else delete refs.current.body; }}
+                        onInput={saveBody} onFocus={() => { setActive("body"); setMenu(false); }} />
+                </div>
             ) : (
                 <div className={`px-3 pb-3 pt-1 ${big ? "flex-1 overflow-y-auto" : ""}`}>
                     {lines.map((line, idx) => (
@@ -233,9 +316,18 @@ export default function StickyNote({ note, handwriting, big, onExpand, onShrink,
             {/* formatting, while you're writing */}
             {active && activeLine && (
                 <div className="stk-bar mx-2 mb-2 px-1 py-1 rounded-xl flex items-center gap-0.5 flex-wrap font-sans" style={{ background: "rgba(255,255,255,0.5)" }} role="toolbar" aria-label="Formatting">
-                    <button className={tool} onMouseDown={keep} onClick={() => setMark((m) => (m ? null : "todo"))} aria-pressed={!!activeLine.mark} title="Checkbox on this line" aria-label="Checkbox on this line">○</button>
-                    <button className={tool} onMouseDown={keep} onClick={() => setMark("done")} aria-pressed={activeLine.mark === "done"} title="Tick" aria-label="Tick"><Ico d="M5 12.5l4.5 4.5L19 7.5" sw={3} /></button>
-                    <button className={tool} onMouseDown={keep} onClick={() => setMark("x")} aria-pressed={activeLine.mark === "x"} title="Cross" aria-label="Cross"><Ico d="M6 6l12 12M18 6L6 18" sw={3} /></button>
+                    {plain ? (
+                        <>
+                            <button className={tool} onMouseDown={keep} onClick={() => insertMark("✓")} title="Tick this line" aria-label="Tick"><Ico d="M5 12.5l4.5 4.5L19 7.5" sw={3} /></button>
+                            <button className={tool} onMouseDown={keep} onClick={() => insertMark("✗")} title="Cross this line" aria-label="Cross"><Ico d="M6 6l12 12M18 6L6 18" sw={3} /></button>
+                        </>
+                    ) : (
+                        <>
+                            <button className={tool} onMouseDown={keep} onClick={() => setMark((m) => (m ? null : "todo"))} aria-pressed={!!activeLine.mark} title="Checkbox on this line" aria-label="Checkbox on this line">○</button>
+                            <button className={tool} onMouseDown={keep} onClick={() => setMark("done")} aria-pressed={activeLine.mark === "done"} title="Tick" aria-label="Tick"><Ico d="M5 12.5l4.5 4.5L19 7.5" sw={3} /></button>
+                            <button className={tool} onMouseDown={keep} onClick={() => setMark("x")} aria-pressed={activeLine.mark === "x"} title="Cross" aria-label="Cross"><Ico d="M6 6l12 12M18 6L6 18" sw={3} /></button>
+                        </>
+                    )}
                     <span className="w-px h-5 mx-1 opacity-30" style={{ background: c.ink }} />
                     <button className={`${tool} font-bold`} onMouseDown={keep} onClick={() => fmt("bold")} title="Bold" aria-label="Bold">B</button>
                     <button className={`${tool} italic`} onMouseDown={keep} onClick={() => fmt("italic")} title="Italic" aria-label="Italic">I</button>
@@ -245,6 +337,7 @@ export default function StickyNote({ note, handwriting, big, onExpand, onShrink,
                 </div>
             )}
 
+            {!note.collapsed && <Tags note={note} ink={c.ink} />}
             {note.from && !note.collapsed && <p className="px-4 pb-2 -mt-1 text-[10.5px] opacity-50 font-sans">From {note.from}</p>}
             {note.syncedTo && note.syncedTo.length > 0 && !note.collapsed && (
                 <p className="px-4 pb-2 -mt-1 text-[10.5px] opacity-50 font-sans">Synced to {note.syncedTo[note.syncedTo.length - 1].name}</p>
