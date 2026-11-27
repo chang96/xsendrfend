@@ -121,7 +121,7 @@ export function receiveNote(note, from) {
         tags: (Array.isArray(note.tags) ? note.tags : []).map(cleanTag).filter(Boolean).slice(0, 8),
         color: colorOf(note.color).id, title: String(note.title || "").slice(0, 120),
         lines: (Array.isArray(note.lines) ? note.lines : []).slice(0, 300).map((l) => ({ id: String(l.id || uid("l_")), html: sanitize(l.html), mark: ["todo", "done", "x"].includes(l.mark) ? l.mark : null })),
-        createdAt: Number(note.createdAt) || Date.now(), updatedAt: Date.now(), collapsed: false,
+        createdAt: Number(note.createdAt) || Date.now(), updatedAt: Date.now(), collapsed: false, hidden: !!note.hidden,
         from: String((from && from.name) || "Another device").slice(0, 40), receivedAt: Date.now(),
     };
     if (!clean.lines.length && clean.kind === "list") clean.lines = [newLine()];
@@ -134,7 +134,7 @@ export function receiveNote(note, from) {
 
 // what travels when you sync: content only
 export function outgoing(note) {
-    return { id: note.id, kind: note.kind || "list", color: note.color, title: note.title, lines: note.lines, body: note.body || "", tags: note.tags || [], createdAt: note.createdAt };
+    return { id: note.id, kind: note.kind || "list", color: note.color, title: note.title, lines: note.lines, body: note.body || "", tags: note.tags || [], hidden: !!note.hidden, createdAt: note.createdAt };
 }
 
 // ---- preferences (handwriting on by default, board maximised or not)

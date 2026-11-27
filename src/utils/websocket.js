@@ -17,6 +17,7 @@ import {
 import { attachJobs, toast as appsToast } from "../components/apps/jobs"
 import { refreshPush } from "./push"
 import { receiveNote } from "./stickiesStore"
+import { announceSecretKey, receiveSecret } from "./secrets"
 
 const ENDPOINT = process.env.REACT_APP_SOCKET_URL || "https://faax.sandymoon.com.ng"
 const WebSocketContext = createContext(null)
@@ -168,6 +169,7 @@ export default ({ children }) => {
     socket.on("connect", () => {
       console.log("Socket.io connected successfully!");
       socket.emit("sticky:name", { name: deviceLabel() }); // how this device shows up in "Sync to…"
+      announceSecretKey(socket); // public half only, so your other devices can send you secrets
       dispatch(connectionEstablished(true));
       if (currentAuth && currentAuth.type === "owner") {
         socket.emit("alias:enter", { alias: currentAuth.alias, deviceId: currentAuth.deviceId, key: currentAuth.key }, (res) => {
@@ -243,6 +245,12 @@ export default ({ children }) => {
     socket.on("sticky:incoming", (d) => {
       const n = d && receiveNote(d.note, d.from);
       if (n) appsToast({ text: `${n.from} sent you a sticky note`, actionLabel: "Open", action: () => window.dispatchEvent(new CustomEvent("faax:open-view", { detail: "stickies" })), ms: 7000 });
+    });
+
+    // A secret from one of your own devices (end-to-end encrypted; kept in memory only)
+    socket.on("secret:incoming", async (d) => {
+      const s = await receiveSecret(d);
+      if (s) appsToast({ text: `${s.from} sent you a secret`, actionLabel: "Open", action: () => window.dispatchEvent(new CustomEvent("faax:open-view", { detail: "notes" })), ms: 7000 });
     });
 
     socket.on("alias:guest-joined", (data) => {

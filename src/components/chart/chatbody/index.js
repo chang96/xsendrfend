@@ -9,6 +9,8 @@ import KnockPrompt from "../../alias/KnockPrompt"
 import TasksView from "../../tasks/TasksView"
 import AppsView from "../../apps/AppsView"
 import StickiesView from "../../stickies/StickiesView"
+import { SecretCards, SecretSheet, KeyIcon } from "../../secrets/Secrets"
+import { secretsSupported } from "../../../utils/secrets"
 import { AppsToastHost } from "../../apps/ui"
 import { toast as appsToast } from "../../apps/jobs"
 import { useApps } from "../../apps/hooks"
@@ -65,6 +67,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
         aliasSession
     } = useContext(WebSocketContext);
     const isOwner = !!(aliasSession && aliasSession.role === "owner");
+    const [secretOpen, setSecretOpen] = useState(false);
     // Tasks belong to the owner of an alias room; apps live in alias rooms; anyone else falls back to chat
     const mode = (viewMode === "tasks" && !isOwner) || (viewMode === "apps" && !aliasSession) ? "chat" : viewMode;
     const { unseen: unseenApps } = useApps();
@@ -1172,6 +1175,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                     className="flex-1 overflow-y-auto px-4 py-4 space-y-4 min-h-0"
                     style={{ scrollbarWidth: "thin" }}
                 >
+                    <SecretCards copy={copyTextToClipboard} />
                     {notes.length === 0 ? (
                         /* Empty state placeholder */
                         <div className="h-full flex flex-col items-center justify-center text-center px-6">
@@ -1533,7 +1537,17 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
             {/* Integrated Collaborative notes footer */}
             {mode === "notes" ? (
                 /* NOTES COMPOSER: Pure minimalist "Create Note" trigger */
-                <div className="bg-[#121212] border-t border-[#1f1f1f] px-4 py-3.5 flex justify-center flex-shrink-0">
+                <div className="bg-[#121212] border-t border-[#1f1f1f] px-4 py-3.5 flex justify-center items-center gap-2 flex-shrink-0">
+                    {isOwner && secretsSupported && (
+                        <button
+                            onClick={() => setSecretOpen(true)}
+                            title="Send a secret to your other devices"
+                            aria-label="Send a secret to your other devices"
+                            className="h-[38px] w-[38px] flex-shrink-0 rounded-xl bg-[#1E1E1E] border border-[#2b2b2b] text-[#f2c94c] hover:bg-[#252527] flex items-center justify-center transition-colors"
+                        >
+                            <KeyIcon className="w-[17px] h-[17px]" />
+                        </button>
+                    )}
                     <button
                         onClick={handleCreateNote}
                         className="w-full max-w-xs py-2.5 rounded-xl bg-[#001AFF] hover:bg-blue-700 text-white font-semibold text-xs tracking-wider uppercase shadow-md transition-all duration-150 active:scale-95 flex items-center justify-center space-x-2 cursor-pointer"
@@ -1541,6 +1555,7 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                         <span className="text-sm font-light">＋</span>
                         <span>Create Note</span>
                     </button>
+                    {secretOpen && <SecretSheet onClose={() => setSecretOpen(false)} />}
                 </div>
             ) : mode === "tasks" || mode === "apps" || mode === "stickies" ? (
                 /* TASKS / APPS: no chat composer */

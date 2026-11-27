@@ -49,3 +49,7 @@
 .stk-dragging { cursor: grabbing; z-index: 9999 !important; }
 .stk-dragging .stk-card { transform: rotate(-1.5deg) scale(1.02); box-shadow: 2px 2px 0 var(--edge), 4px 4px 0 color-mix(in srgb, var(--edge) 80%, #000), 18px 24px 40px -12px rgba(0, 0, 0, 0.7); }
 .stk-body div, .stk-body p { margin: 0; }
+.stk-float .stk-card { margin-bottom: 0; animation: none; box-shadow: 2px 2px 0 var(--edge), 4px 4px 0 color-mix(in srgb, var(--edge) 80%, #000), 0 30px 70px -20px rgba(0, 0, 0, 0.85); }
+.stk-float .stk-card:focus-within { transform: none; }
+.stk-float.stk-dragging .stk-card { transform: none; }
+.stk-mask { cursor: pointer; }

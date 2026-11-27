@@ -11,6 +11,7 @@ const I = {
     unfold: "M12 5v14M5 12h14",
     sync: "M4 12a8 8 0 0113.7-5.7L20 8M20 4v4h-4M20 12a8 8 0 01-13.7 5.7L4 16M4 20v-4h4",
     more: "M5 12h.01M12 12h.01M19 12h.01",
+    lock: "M6 11h12v9H6zM8.5 11V8a3.5 3.5 0 017 0v3",
 };
 
 // The mark in front of a line: ○ to do, ✓ done, ✗ not doing. Click cycles.
@@ -118,6 +119,9 @@ export default function StickyNote({ note, handwriting, big, onExpand, onShrink,
     const [active, setActive] = useState(null); // focused line id
     const [menu, setMenu] = useState(false);
     const [confirmDel, setConfirmDel] = useState(false);
+    const [peek, setPeek] = useState(false); // a hidden note, shown for a moment
+    const masked = !!note.hidden && !peek;
+    useEffect(() => { if (!peek) return undefined; const t = setTimeout(() => setPeek(false), 60000); return () => clearTimeout(t); }, [peek]);
     const lines = note.lines || [];
     const plain = note.kind === "plain";
 
@@ -125,17 +129,19 @@ export default function StickyNote({ note, handwriting, big, onExpand, onShrink,
         const p = pendingFocus.current;
         if (p && refs.current[p.id]) { placeCaret(refs.current[p.id], p.atEnd !== false); pendingFocus.current = null; }
     });
-    useEffect(() => () => clearTimeout(saveTimer.current), []);
+    const pending = useRef(null); // a save that hasn't run yet
+    // closing the note (or leaving the board) never drops the last few letters
+    useEffect(() => () => { clearTimeout(saveTimer.current); if (pending.current) pending.current(); }, []);
+    const later = (fn) => { clearTimeout(saveTimer.current); pending.current = fn; saveTimer.current = setTimeout(() => { pending.current = null; fn(); }, 250); };
 
     const setLines = (fn) => updateNote(note.id, (n) => ({ lines: fn(n.lines || []) }));
     const saveLine = (id, html) => {
-        clearTimeout(saveTimer.current);
         const clean = sanitize(html);
-        saveTimer.current = setTimeout(() => setLines((ls) => ls.map((l) => (l.id === id ? { ...l, html: clean } : l))), 250);
+        later(() => setLines((ls) => ls.map((l) => (l.id === id ? { ...l, html: clean } : l))));
     };
     const flush = () => {
         // take what's on screen right now (pending typing) before a structural change
-        clearTimeout(saveTimer.current);
+        clearTimeout(saveTimer.current); pending.current = null;
         return lines.map((l) => (refs.current[l.id] ? { ...l, html: sanitize(refs.current[l.id].innerHTML) } : l));
     };
 
@@ -189,9 +195,8 @@ export default function StickyNote({ note, handwriting, big, onExpand, onShrink,
         else if (active && refs.current[active]) saveLine(active, refs.current[active].innerHTML);
     };
     const saveBody = (html) => {
-        clearTimeout(saveTimer.current);
         const clean = sanitize(html);
-        saveTimer.current = setTimeout(() => updateNote(note.id, { body: clean }), 250);
+        later(() => updateNote(note.id, { body: clean }));
     };
     const fmt = (cmd) => { document.execCommand(cmd, false, null); saveActive(); };
     // Plain notes: ✓ / ✗ go at the start of the line the caret is on (tap again to remove, or swap)
@@ -236,7 +241,8 @@ export default function StickyNote({ note, handwriting, big, onExpand, onShrink,
         <article
             className={`stk-card ${handwriting ? "stk-hand" : "stk-plain"} ${big ? "stk-big h-full flex flex-col" : ""}`}
             style={{ background: c.bg, color: c.ink, "--edge": c.edge, "--ink": c.ink }}
-            onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) { setActive(null); setMenu(false); } }}
+            onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) { setActive(null); setMenu(false); if (peek && e.relatedTarget) setPeek(false); } }}
+            data-hidden={note.hidden ? (peek ? "peek" : "yes") : undefined}
             aria-label={note.title || "Sticky note"}
         >
             {/* header: date, tools */}
@@ -259,6 +265,9 @@ export default function StickyNote({ note, handwriting, big, onExpand, onShrink,
                 <div className="stk-bar mx-3 mt-1 mb-1 p-2 rounded-xl flex items-center gap-1.5 flex-wrap" style={{ background: "rgba(255,255,255,0.45)" }}>
                     <button onClick={() => { convertNote(note.id); setMenu(false); }} className="h-7 px-2.5 rounded-lg text-[12px] font-semibold hover:bg-black/5 font-sans w-full text-left mb-0.5">
                         {plain ? "Turn into a checklist" : "Turn into a plain note"}
+                    </button>
+                    <button onClick={() => { updateNote(note.id, { hidden: !note.hidden }); setPeek(false); setMenu(false); setActive(null); }} className="h-7 px-2.5 rounded-lg text-[12px] font-semibold hover:bg-black/5 font-sans w-full text-left mb-0.5">
+                        {note.hidden ? "Stop hiding the text" : "Hide the text"}
                     </button>
                     {COLORS.map((k) => (
                         <button key={k.id} title={k.id} aria-label={`Colour ${k.id}`} onClick={() => updateNote(note.id, { color: k.id })}
@@ -284,7 +293,16 @@ export default function StickyNote({ note, handwriting, big, onExpand, onShrink,
                 />
             </div>
 
-            {note.collapsed && !big ? (
+            {masked ? (
+                <button onClick={() => setPeek(true)} className={`stk-mask w-full text-left px-4 pb-3 pt-1 font-sans ${big ? "flex-1" : ""}`} aria-label="Text hidden. Tap to show it">
+                    <span className="block space-y-1.5 py-1" aria-hidden="true">
+                        {[0.92, 0.7, 0.82].slice(0, note.collapsed && !big ? 1 : 3).map((w, i) => <span key={i} className="block h-2.5 rounded-full" style={{ width: `${w * 100}%`, background: c.ink, opacity: 0.16 }} />)}
+                    </span>
+                    <span className="flex items-center gap-1.5 text-[11.5px] font-semibold opacity-60 mt-1.5">
+                        <Ico d={I.lock} className="w-3.5 h-3.5" /> Text hidden · tap to show
+                    </span>
+                </button>
+            ) : note.collapsed && !big ? (
                 <button onClick={() => updateNote(note.id, { collapsed: false })} className="w-full text-left px-4 pb-3 pt-1">
                     <span className="stk-text block truncate opacity-70">{(plain ? plainText(note.body) : preview[0]) || "Empty note"}</span>
                     <span className="block text-[11px] opacity-50 mt-0.5 font-sans">{plain ? "Plain note" : `${lines.length} line${lines.length === 1 ? "" : "s"}`} · tap to unfold</span>
@@ -314,7 +332,7 @@ export default function StickyNote({ note, handwriting, big, onExpand, onShrink,
             )}
 
             {/* formatting, while you're writing */}
-            {active && activeLine && (
+            {active && activeLine && !masked && (
                 <div className="stk-bar mx-2 mb-2 px-1 py-1 rounded-xl flex items-center gap-0.5 flex-wrap font-sans" style={{ background: "rgba(255,255,255,0.5)" }} role="toolbar" aria-label="Formatting">
                     {plain ? (
                         <>
@@ -337,6 +355,11 @@ export default function StickyNote({ note, handwriting, big, onExpand, onShrink,
                 </div>
             )}
 
+            {note.hidden && peek && (
+                <button onClick={() => { setPeek(false); setActive(null); }} className="mx-4 mb-2 h-7 px-2.5 rounded-lg text-[11.5px] font-semibold font-sans flex items-center gap-1.5 opacity-70 hover:opacity-100" style={{ background: "rgba(255,255,255,0.45)" }}>
+                    <Ico d={I.lock} className="w-3.5 h-3.5" /> Hide again
+                </button>
+            )}
             {!note.collapsed && <Tags note={note} ink={c.ink} />}
             {note.from && !note.collapsed && <p className="px-4 pb-2 -mt-1 text-[10.5px] opacity-50 font-sans">From {note.from}</p>}
             {note.syncedTo && note.syncedTo.length > 0 && !note.collapsed && (

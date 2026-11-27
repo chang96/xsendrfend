@@ -188,6 +188,44 @@ function FreeBoard({ notes, handwriting, onExpand, onSync, onDelete, boardRef, s
     );
 }
 
+// The opened note: a window over the board. Starts centred; drag the top strip to move it.
+function FloatingNote({ note, areaRef, boardRef, handwriting, onShrink, onSync, onDelete }) {
+    // it floats over the notes, below the header (so New, Tidy and Maximize stay in reach)
+    const measure = () => { const el = areaRef.current, b = boardRef.current; return el ? { w: el.clientWidth, h: el.clientHeight, top: b ? b.offsetTop : 0 } : { w: 800, h: 700, top: 0 }; };
+    const [area, setArea] = useState(measure);
+    const [pos, setPos] = useState(null);
+    const start = useRef(null);
+    useEffect(() => {
+        const el = areaRef.current;
+        if (!el || typeof ResizeObserver === "undefined") return undefined;
+        const ro = new ResizeObserver(() => setArea(measure()));
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, [areaRef]); // eslint-disable-line react-hooks/exhaustive-deps
+    const m = area.w < 600 ? 8 : 16;
+    const w = Math.min(720, area.w - m * 2);
+    const room = area.h - area.top;
+    const h = Math.max(260, Math.min(room - m, Math.round(room * 0.75)));
+    // the whole note stays on screen
+    const clamp = (p) => ({ x: Math.min(Math.max(0, p.x), Math.max(0, area.w - w)), y: Math.min(Math.max(area.top, p.y), Math.max(area.top, area.h - h)) });
+    const at = clamp(pos || { x: (area.w - w) / 2, y: area.top + Math.max(0, (room - h) / 2) });
+    const down = (e) => {
+        if (e.button !== undefined && e.button !== 0) return;
+        if (e.target.closest("button, input, [contenteditable]")) return;
+        e.preventDefault();
+        e.currentTarget.setPointerCapture && e.currentTarget.setPointerCapture(e.pointerId);
+        start.current = { px: e.clientX, py: e.clientY, x: at.x, y: at.y };
+    };
+    const move = (e) => { const s = start.current; if (s) setPos(clamp({ x: s.x + e.clientX - s.px, y: s.y + e.clientY - s.py })); };
+    const up = () => { start.current = null; };
+    return (
+        <div className="stk-float absolute z-30 fx-app-in" data-note={note.id} data-floating="1"
+            style={{ left: at.x, top: at.y, width: w, height: h }} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
+            <StickyNote note={note} big handwriting={handwriting} onShrink={onShrink} onSync={onSync} onDelete={onDelete} dragProps={{ onPointerDown: down }} />
+        </div>
+    );
+}
+
 export default function StickiesView() {
     const notes = useNotes();
     const [prefs, setP] = useState(getPrefs);
@@ -197,6 +235,7 @@ export default function StickiesView() {
     const [tag, setTag] = useState(null); // filter
     const boardRef = useRef(null);
     const scrollRef = useRef(null);
+    const areaRef = useRef(null);
     const tags = allTags();
     const shown = tag ? notes.filter((n) => (n.tags || []).includes(tag)) : notes;
     const pref = (p) => { setPrefs(p); setP((x) => ({ ...x, ...p })); };
@@ -241,7 +280,7 @@ export default function StickiesView() {
 
     const iconBtn = "h-9 w-9 rounded-xl flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/5 transition-colors";
     const body = (
-        <div className={`stk planner relative flex-1 flex flex-col min-h-0 ${prefs.maximized ? "" : ""}`}>
+        <div ref={areaRef} className="stk planner relative flex-1 flex flex-col min-h-0">
             <div className="flex items-center justify-between gap-2 px-4 pt-4 pb-3 flex-shrink-0">
                 <div className="min-w-0">
                     <p className="text-[19px] font-semibold tracking-tight text-white leading-tight">Sticky notes</p>
@@ -294,7 +333,7 @@ export default function StickiesView() {
                 </div>
             )}
 
-            <div ref={scrollRef} className="soft-scroll flex-1 overflow-auto px-4 pb-10 pt-2 min-h-0" onClick={() => setNewMenu(false)}>
+            <div ref={scrollRef} className="soft-scroll isolate flex-1 overflow-auto px-4 pb-10 pt-2 min-h-0" onClick={() => setNewMenu(false)}>
                 {notes.length === 0 ? (
                     <div className="flex flex-col items-center text-center pt-16 px-6">
                         <div className="w-24 h-24 rounded-sm mb-5 flex items-center justify-center text-[#3b3a1e] text-[26px]" style={{ background: "#fdf6a3", boxShadow: "3px 3px 0 #e9df7a, 6px 6px 0 #cfc560", fontFamily: '"Caveat", cursive' }}>To Do</div>
@@ -322,14 +361,8 @@ export default function StickiesView() {
                 )}
             </div>
 
-            {/* one note, big: fills the board */}
-            {big && (
-                <div className="absolute inset-0 z-20 bg-[#0f0f11]/92 backdrop-blur-sm p-3 sm:p-6 flex justify-center fx-app-in" onClick={(e) => { if (e.target === e.currentTarget) setBigId(null); }}>
-                    <div className="w-full max-w-3xl h-full" data-note={big.id}>
-                        <StickyNote note={big} big handwriting={prefs.handwriting} onShrink={() => setBigId(null)} onSync={setSyncing} onDelete={remove} />
-                    </div>
-                </div>
-            )}
+            {/* one note, big: floats above all the others; drag it by its top strip */}
+            {big && <FloatingNote key={big.id} note={big} areaRef={areaRef} boardRef={scrollRef} handwriting={prefs.handwriting} onShrink={() => setBigId(null)} onSync={setSyncing} onDelete={remove} />}
 
             {syncing && <SyncSheet note={notes.find((n) => n.id === syncing.id) || syncing} onClose={() => setSyncing(null)} />}
         </div>
