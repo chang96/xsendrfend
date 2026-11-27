@@ -1,4 +1,5 @@
 import "../tasks/tasks.css";
+import "./secrets.css";
 import { useContext, useEffect, useState } from "react";
 import { WebSocketContext } from "../../utils/websocket";
 import { SECRET_TTL, getSecrets, removeSecret, sealFor, subscribeSecrets } from "../../utils/secrets";
@@ -16,7 +17,11 @@ const Eye = ({ off }) => (
     </svg>
 );
 
-// Send a password / code to your other devices only
+const MAX = 4000;
+// Dots while typing, like a password box (blur where the browser can't draw dots)
+const maskClass = typeof CSS !== "undefined" && CSS.supports && CSS.supports("-webkit-text-security", "disc") ? "fx-secret-dots" : "fx-secret-blur";
+
+// Send a password, code or private note to devices you pick (yours are picked first)
 export function SecretSheet({ onClose }) {
     const { socket, request } = useContext(WebSocketContext);
     const [peers, setPeers] = useState(null);
@@ -29,7 +34,7 @@ export function SecretSheet({ onClose }) {
         request("secret:peers", {}, 6000).then((r) => {
             const list = r && r.ok ? r.peers : [];
             setPeers(list);
-            setPicked(new Set(list.map((p) => p.id)));
+            setPicked(new Set(list.filter((p) => p.mine).map((p) => p.id)));
         });
     }, [request]);
     const toggle = (id) => setPicked((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -50,24 +55,26 @@ export function SecretSheet({ onClose }) {
         setBusy(false);
     };
     return (
-        <Sheet title="Send a secret" subtitle="Only your own devices get it. Encrypted on this device; never saved anywhere." onClose={onClose}
+        <Sheet title="Send a secret" subtitle="Only the devices you pick get it. Encrypted on this device, never saved anywhere." onClose={onClose}
             footer={(close) => peers && peers.length > 0 && (
                 <button onClick={() => send(close)} disabled={!secret || !picked.size || busy}
                     className="w-full h-11 rounded-2xl bg-[#001AFF] hover:bg-[#1a33ff] disabled:opacity-40 text-white text-[13px] font-semibold transition-colors">
                     {busy ? "Sending…" : !secret ? "Type the secret" : picked.size ? `Send to ${picked.size} device${picked.size > 1 ? "s" : ""}` : "Pick a device"}
                 </button>
             )}>
-            {(close) => peers === null ? <p className="text-[12px] text-gray-500">Looking for your devices…</p>
+            {(close) => peers === null ? <p className="text-[12px] text-gray-500">Looking for devices in this room…</p>
                 : peers.length === 0 ? (
-                    <p className="text-[12px] text-gray-400 leading-relaxed">None of your other devices has this room open right now. Open it there, then try again.</p>
+                    <p className="text-[12px] text-gray-400 leading-relaxed">No other device has this room open right now. Open it there, then try again.</p>
                 ) : (
                     <div className="space-y-3">
                         <input value={label} onChange={(e) => setLabel(e.target.value.slice(0, 80))} placeholder="What is it? (e.g. Wi-Fi password)" aria-label="Label"
                             className="w-full h-11 px-3.5 rounded-xl bg-[#111113] border border-[#2a2a30] text-white text-[13px] outline-none focus:border-[#4d63ff]" />
                         <div className="relative">
-                            <input value={secret} onChange={(e) => setSecret(e.target.value.slice(0, 4000))} type={show ? "text" : "password"} placeholder="The secret" aria-label="Secret"
-                                autoComplete="off" autoFocus onKeyDown={(e) => { if (e.key === "Enter") send(close); }}
-                                className="w-full h-11 pl-3.5 pr-11 rounded-xl bg-[#111113] border border-[#2a2a30] text-white text-[13px] font-mono outline-none focus:border-[#4d63ff]" />
+                            <textarea value={secret} onChange={(e) => setSecret(e.target.value.slice(0, MAX))} placeholder="The secret: a password, a code, or a whole note" aria-label="Secret"
+                                autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} autoFocus rows={4}
+                                onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) send(close); }}
+                                className={`w-full min-h-[96px] max-h-[40vh] resize-y pl-3.5 pr-11 py-2.5 rounded-xl bg-[#111113] border border-[#2a2a30] text-white text-[13px] leading-relaxed font-mono outline-none focus:border-[#4d63ff] ${show ? "" : maskClass}`} />
+                            {secret.length > MAX - 200 && <p className="text-[10.5px] text-gray-500 mt-1 text-right">{secret.length}/{MAX}</p>}
                             <button onClick={() => setShow((s) => !s)} aria-label={show ? "Hide secret" : "Show secret"} title={show ? "Hide" : "Show"}
                                 className="absolute right-1.5 top-1.5 h-8 w-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-white"><Eye off={show} /></button>
                         </div>
@@ -78,11 +85,14 @@ export function SecretSheet({ onClose }) {
                                     <span className={`h-5 w-5 rounded-md border-2 flex items-center justify-center ${picked.has(p.id) ? "border-[#4d63ff] bg-[#4d63ff]" : "border-[#45454d]"}`}>
                                         {picked.has(p.id) && <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M5 12.5l4.5 4.5L19 7.5" /></svg>}
                                     </span>
-                                    <span className="text-[13px] font-semibold text-white truncate">{p.name}</span>
+                                    <span className="flex-1 min-w-0">
+                                        <span className="block text-[13px] font-semibold text-white truncate">{p.name}</span>
+                                        <span className="block text-[10.5px] text-gray-500">{p.mine ? "Your device" : "In this room"}</span>
+                                    </span>
                                 </button>
                             ))}
                         </div>
-                        <p className="text-[10.5px] text-gray-500 leading-relaxed">It shows up hidden in Room notes on those devices and clears itself after {Math.round(SECRET_TTL / 60000)} minutes.</p>
+                        <p className="text-[10.5px] text-gray-500 leading-relaxed">It shows up hidden in Room notes on the devices you pick and clears itself after {Math.round(SECRET_TTL / 60000)} minutes.</p>
                     </div>
                 )}
         </Sheet>
@@ -105,15 +115,15 @@ function SecretCard({ s, copy }) {
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
             </div>
-            <div className="mt-2.5 flex items-center gap-2">
-                <code className="flex-1 min-w-0 break-all text-white text-[13px] font-mono bg-[#121214] border border-[#2b2b2d] rounded-xl px-3 py-2" aria-label="Secret value">
+            <div className="mt-2.5 flex items-start gap-2">
+                <code className="flex-1 min-w-0 max-h-[50vh] overflow-y-auto whitespace-pre-wrap break-words text-white text-[13px] leading-relaxed font-mono bg-[#121214] border border-[#2b2b2d] rounded-xl px-3 py-2 self-stretch" aria-label="Secret value">
                     {show ? s.secret : "•".repeat(Math.min(12, Math.max(6, s.secret.length)))}
                 </code>
                 <button onClick={() => setShow((x) => !x)} aria-label={show ? "Hide secret" : "Show secret"} title={show ? "Hide" : "Show"}
                     className="h-9 w-9 rounded-xl flex items-center justify-center text-gray-400 hover:text-white bg-[#171719] border border-[#2b2b2b]"><Eye off={show} /></button>
                 <button onClick={(e) => copy(s.secret, e.currentTarget)} className="h-9 px-3 rounded-xl text-[11px] font-bold text-gray-300 bg-[#171719] border border-[#2b2b2b] hover:bg-[#252527]">Copy</button>
             </div>
-            <p className="mt-2 text-[10px] text-gray-500">From {s.from} · only on your devices · clears in {mins} min</p>
+            <p className="mt-2 text-[10px] text-gray-500">From {s.from} · not saved anywhere · clears in {mins} min</p>
         </div>
     );
 }

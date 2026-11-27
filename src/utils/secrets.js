@@ -1,4 +1,4 @@
-// Secrets to your own devices, end-to-end encrypted.
+// Secrets to devices you pick (yours, or people in the room), end-to-end encrypted.
 // Each open tab makes a throwaway ECDH key pair (the private half never leaves this tab).
 // To send, we encrypt separately for each of your other open devices with AES-GCM; the server
 // only relays ciphertext. Received secrets live in memory only and clear themselves.
@@ -61,7 +61,7 @@ export async function receiveSecret(msg) {
             id: "s_" + Math.random().toString(36).slice(2, 10),
             label: String(p.label || "").slice(0, 80),
             secret: String(p.secret || "").slice(0, 4000),
-            from: String((msg.from && msg.from.name) || "Your other device").slice(0, 40),
+            from: String((msg.from && msg.from.name) || "A device").slice(0, 40),
             at: Date.now(),
         };
         list = [s, ...list].slice(0, 20);

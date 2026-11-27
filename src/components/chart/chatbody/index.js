@@ -1541,8 +1541,8 @@ function ChartBody({messageFromServr, completion, sendMessage, userType, roomNam
                     {isOwner && secretsSupported && (
                         <button
                             onClick={() => setSecretOpen(true)}
-                            title="Send a secret to your other devices"
-                            aria-label="Send a secret to your other devices"
+                            title="Send a secret to your devices or someone in this room"
+                            aria-label="Send a secret"
                             className="h-[38px] w-[38px] flex-shrink-0 rounded-xl bg-[#1E1E1E] border border-[#2b2b2b] text-[#f2c94c] hover:bg-[#252527] flex items-center justify-center transition-colors"
                         >
                             <KeyIcon className="w-[17px] h-[17px]" />
